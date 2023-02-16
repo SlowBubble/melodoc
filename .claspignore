@@ -1,0 +1,9 @@
+.git/**
+node_modules/**
+src/**
+build/**
+index.html
+package-lock.json
+package.json
+rollup.config.mjs
+tsconfig.json
