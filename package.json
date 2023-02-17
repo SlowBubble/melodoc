@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "./node_modules/.bin/rollup -c",
+    "build": "./node_modules/.bin/rollup -c && node jsToHtmlBuild.js",
     "dev": "./node_modules/.bin/rollup -c -w",
+    "deploy": "npm run build && clasp push",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

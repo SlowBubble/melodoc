@@ -15,16 +15,4 @@ export default [{
 		commonjs(),
 		typescript(),
 	],
-}, {
-	input: 'src/main.ts',
-	output: {
-		file: 'googleBuild/js.html',
-		format: 'iife',
-    sourcemap: true,
-	},
-	plugins: [
-		nodeResolve(),
-		commonjs(),
-		typescript(),
-	],
 }]
