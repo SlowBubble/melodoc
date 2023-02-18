@@ -1,4 +1,4 @@
-(function (exports) {
+(function () {
     'use strict';
 
     class MelodocEditor {
@@ -26,9 +26,21 @@
         melodocUi.loadSerializedData(data);
     }
 
-    exports.main = main;
+    function toInternalUrl(externalUrlStr) {
+        return new URL(externalUrlStr.replace('#', '?'));
+    }
+    function getUrlParamsMap() {
+        const url = toInternalUrl(document.URL);
+        const keyVals = new Map();
+        url.searchParams.forEach(function (value, key) {
+            keyVals.set(key, value);
+        });
+        return keyVals;
+    }
 
-    return exports;
+    const urlParams = getUrlParamsMap();
+    const data = urlParams.has('data') ? urlParams.get('data') : '';
+    main(data);
 
-})({});
-//# sourceMappingURL=main.min.js.map
+})();
+//# sourceMappingURL=webMain.js.map

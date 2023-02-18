@@ -3,16 +3,22 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 
 
-export default [{
-	input: 'src/main.ts',
-	output: {
-		file: 'build/main.min.js',
-		format: 'iife',
-    sourcemap: true,
-	},
-	plugins: [
-		nodeResolve(),
-		commonjs(),
-		typescript(),
-	],
-}]
+function genConfig(input, outputFile) {
+	return {
+		input: input,
+		output: {
+			file: outputFile,
+			format: 'iife',
+			sourcemap: true,
+		},
+		plugins: [
+			nodeResolve(),
+			commonjs(),
+			typescript(),
+		],
+	};
+}
+export default [
+	genConfig('src/webMain.ts', 'build/webMain.js'),
+	genConfig('src/googleAddOnMain.ts', 'build/googleAddOnMain.js'),
+]

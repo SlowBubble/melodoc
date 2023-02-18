@@ -1,6 +1,6 @@
 
 var fs = require('fs');
-var srcPath = './build/main.min.js'; 
+var srcPath = './build/googleAddOnMain.js'; 
 var destPath = `${srcPath}.html`; 
 
 function overWrite(path, data) {

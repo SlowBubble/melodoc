@@ -1,4 +1,4 @@
-(function (exports) {
+(function () {
     'use strict';
 
     class MelodocEditor {
@@ -26,9 +26,7 @@
         melodocUi.loadSerializedData(data);
     }
 
-    exports.main = main;
+    main('google');
 
-    return exports;
-
-})({});
-//# sourceMappingURL=main.min.js.map
+})();
+//# sourceMappingURL=googleAddOnMain.js.map
