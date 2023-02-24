@@ -20,7 +20,7 @@ export interface SongApi {
 // Keep voices and staffs separate and assign a default staff index to each VoiceApi
 export interface VoiceApi {
   noteGps?: Array<NoteGpApi>,
-  staffIndex?: number,
+  staffIndex?: NonNegativeInt,
   instrument?: InstrumentApi,
 }
 
@@ -44,17 +44,17 @@ export interface NoteGpApi {
 }
 
 export interface FractionApi {
-  numer?: number,
-  denom?: number,
+  numer?: Int,
+  denom?: PositiveInt,
 }
 
 export interface PitchApi {
-  noteNum?: number,
+  noteNum?: PositiveInt,
   spelling?: SpellingApi,
 }
 
 export interface SpellingApi {
-  letter?: letterApi,
+  letter?: LetterApi,
   accidentals: Array<AccidentalApi>,
 }
 
@@ -64,7 +64,7 @@ export enum AccidentalApi {
   natural = 'natural',
 }
 
-export enum letterApi {
+export enum LetterApi {
   A = 'A',
   B = 'B',
   C = 'C',
@@ -73,3 +73,7 @@ export enum letterApi {
   F = 'F',
   G = 'G',
 }
+
+type Int = number;
+type NonNegativeInt = number;
+type PositiveInt = number;
