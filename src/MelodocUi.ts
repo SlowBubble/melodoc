@@ -10,6 +10,9 @@ export class MelodocUi extends HTMLElement {
   }
   connectedCallback() {
     this.innerHTML = `MelodocUi`;
+    // document.onkeydown = evt => {
+    //   evt.code;
+    // }
   }
   loadSerializedData(data: string) {
     const song = new Song(dataToSongApi(data));

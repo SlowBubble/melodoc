@@ -194,6 +194,9 @@
         }
         connectedCallback() {
             this.innerHTML = `MelodocUi`;
+            // document.onkeydown = evt => {
+            //   evt.code;
+            // }
         }
         loadSerializedData(data) {
             const song = new Song(dataToSongApi(data));
