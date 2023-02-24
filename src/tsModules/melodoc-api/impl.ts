@@ -1,59 +1,86 @@
-import { SongApi } from "./interface";
+import { fromInt, Frac } from "../fraction/fraction";
+import { AccidentalEnum, InstrumentEnum, LetterEnum, NonNegativeInt, NoteGpApi, PitchApi, SongApi, SpellingApi, StaffApi, StaffTypeEnum, VoiceApi } from "./interface";
 
-// Top-level public structure for Melodoc.
-
+// The class itself does not need to implement SongApi, e.g. extra internal fields,
+// but toApi should return an object that implements SongApi.
 export class Song {
   title: string;
+  staffs: Array<Staff>;
+  voices: Array<Voice>;
   constructor({
     title = '',
+    staffs = [],
+    voices = [],
   }: SongApi) {
     this.title = title;
+    this.staffs = staffs.map(obj => new Staff(obj));
+    this.voices = voices.map(obj => new Voice(obj));
+  }
+
+  toApi(): SongApi {
+    return this;
   }
 }
 
+export class Staff {
+  staffType: StaffTypeEnum;
+  constructor({
+    staffType = StaffTypeEnum.treble,
+  }: StaffApi) {
+    this.staffType = staffType;
+  }
+}
 
-// export class Voice {
-//   constructor({
-//     noteGps = [],
-//     staffType = StaffType.Treble,
-//   }) {
+export class Voice {
+  noteGps: NoteGp[];
+  staffIndex: NonNegativeInt;
+  instrument: InstrumentEnum;
+  constructor({
+    noteGps = [],
+    staffIndex = 0,
+    instrument = InstrumentEnum.acoustic_grand_piano,
+  }: VoiceApi) {
+    this.noteGps = noteGps.map(obj => new NoteGp(obj));
+    this.staffIndex = staffIndex;
+    this.instrument = instrument;
+  }
+}
 
-//   }
-// }
+export class NoteGp {
+  start8n: Frac;
+  end8n: Frac;
+  pitches: Pitch[];
+  constructor({
+    start8n = fromInt(0),
+    end8n = fromInt(0),
+    pitches = [],
+  }: NoteGpApi) {
+    this.start8n = new Frac(start8n);
+    this.end8n = new Frac(end8n);
+    this.pitches = pitches.map(obj => new Pitch(obj));
+  }
+}
 
-// export const StaffType = {
-//   Treble: 'Treble',
-//   Bass: 'Bass',
-// };
+export class Pitch {
+  noteNum: NonNegativeInt;
+  spelling: Spelling;
+  constructor({
+    noteNum = 0,
+    spelling = {},
+  }: PitchApi) {
+    this.noteNum = noteNum;
+    this.spelling = new Spelling(spelling);
+  }
+}
 
-// export class NoteGp {
-//   constructor({
-//     start8n,
-//     end8n,
-//     pitches = [],
-//     // optional
-//     accented,
-//   }) {
-
-//   }
-// }
-
-// export class Pitch {
-//   constructor({
-//     noteNum = 60,
-//     spelling,
-//   }) {
-
-//   }
-// }
-
-// export class ChordChange {
-//   constructor({
-//     start8n,
-//     // No validation here.
-//     // Interpretation is left for the client.
-//     chordString,
-//   }) {
-
-//   }
-// }
+export class Spelling {
+  letter: LetterEnum;
+  accidentals: AccidentalEnum[];
+  constructor({
+    letter = LetterEnum.C,
+    accidentals = [],
+  }: SpellingApi) {
+    this.letter = letter;
+    this.accidentals = accidentals;
+  }
+}

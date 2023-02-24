@@ -21,18 +21,18 @@ export interface SongApi {
 export interface VoiceApi {
   noteGps?: Array<NoteGpApi>,
   staffIndex?: NonNegativeInt,
-  instrument?: InstrumentApi,
+  instrument?: InstrumentEnum,
 }
 
-export enum InstrumentApi {
+export enum InstrumentEnum {
   acoustic_grand_piano = 'acoustic_grand_piano',
 }
 
 export interface StaffApi {
-  staffType?: StaffTypeApi,
+  staffType?: StaffTypeEnum,
 }
 
-export enum StaffTypeApi {
+export enum StaffTypeEnum {
   treble = 'treble',
   bass = 'bass',
 }
@@ -49,22 +49,22 @@ export interface FractionApi {
 }
 
 export interface PitchApi {
-  noteNum?: PositiveInt,
+  noteNum?: NonNegativeInt,
   spelling?: SpellingApi,
 }
 
 export interface SpellingApi {
-  letter?: LetterApi,
-  accidentals: Array<AccidentalApi>,
+  letter?: LetterEnum,
+  accidentals?: Array<AccidentalEnum>,
 }
 
-export enum AccidentalApi {
+export enum AccidentalEnum {
   sharp = 'sharp',
   flat = 'flat',
   natural = 'natural',
 }
 
-export enum LetterApi {
+export enum LetterEnum {
   A = 'A',
   B = 'B',
   C = 'C',
@@ -74,6 +74,6 @@ export enum LetterApi {
   G = 'G',
 }
 
-type Int = number;
-type NonNegativeInt = number;
-type PositiveInt = number;
+export type Int = number;
+export type NonNegativeInt = number;
+export type PositiveInt = number;

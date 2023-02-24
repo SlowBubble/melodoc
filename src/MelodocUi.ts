@@ -14,7 +14,7 @@ export class MelodocUi extends HTMLElement {
   loadSerializedData(data: string) {
     const song = new Song(dataToSongApi(data));
     this.editor.loadSong(song);
-    this.innerHTML = data;
+    this.innerHTML = JSON.stringify(song, null, 2);
   }
 }
 
