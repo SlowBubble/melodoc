@@ -187,16 +187,165 @@
         }
     }
 
+    /**
+     * Usage:
+        const [noteOnPub, noteOnSub] = pubsub.makePubSub();
+        noteOnSub(data => { console.log('Received', data); });
+        noteOnPub(42);
+     *
+     *
+     */
+    function makePubSub() {
+        const evtMgr = new EvtMgr();
+        return [evtMgr.pub, evtMgr.sub, evtMgr.onOffSwitch];
+    }
+    class EvtMgr {
+        constructor() {
+            this.handlers = [];
+            this.isOn = true;
+            // This weird way of defining methods is needed to support
+            // the usage of passing EvtMgr.pub instead of EvtMgr into
+            // other callers, so that this.handlers is defined.
+            this.pub = (...args) => {
+                this.handlers.forEach(handlerFunc => {
+                    if (this.isOn) {
+                        handlerFunc(...args);
+                    }
+                });
+            };
+            this.sub = handlerFunc => {
+                this.handlers.push(handlerFunc);
+            };
+            this.onOffSwitch = onOrOff => {
+                this.isOn = onOrOff;
+            };
+        }
+    }
+
+    class DebouncedKeyboard {
+        constructor() {
+            this.enabled = true;
+            this.keyDownCodes = new Set();
+            [this.debouncedKeyDown, this.onDebouncedKeyDown] = makePubSub();
+            [this.debouncedKeyUp, this.onDebouncedKeyUp] = makePubSub();
+        }
+        keyDown(evt) {
+            if (this.keyDownCodes.has(evt.code)) {
+                return;
+            }
+            this.keyDownCodes.add(evt.code);
+            this.debouncedKeyDown(evt);
+        }
+        keyUp(evt) {
+            this.keyDownCodes.delete(evt.code);
+            if (!this.enabled) {
+                return;
+            }
+            this.debouncedKeyUp(evt);
+        }
+    }
+
+    const piano123Config = {
+        defaultStartingNoteNum: 47,
+        ordering: [
+            '`',
+            '1',
+            'q',
+            '2',
+            'w',
+            '3',
+            '4',
+            'r',
+            '5',
+            't',
+            '6',
+            'y',
+            '7',
+            '8',
+            'i',
+            '9',
+            'o',
+            '0',
+            '-',
+            '[',
+            '=',
+            ']',
+            "'",
+            '/',
+            ';',
+            'l',
+            ',',
+            'k',
+            'm',
+            'j',
+            'h',
+            'b',
+            'g',
+            'v',
+            'f',
+            'c',
+            'd',
+            's',
+            'z',
+            'a',
+        ],
+    };
+
+    class PianoKeyboard {
+        constructor() {
+            this.loadMappingConfig(piano123Config);
+            [this.noteDown, this.onNoteDown] = makePubSub();
+            [this.noteUp, this.onNoteUp] = makePubSub();
+        }
+        keyDown(evt) {
+            const possNoteNum = this.keyToNoteNum.get(evt.key);
+            if (possNoteNum === undefined) {
+                return;
+            }
+            this.noteDown(possNoteNum);
+        }
+        keyUp(evt) {
+            const possNoteNum = this.keyToNoteNum.get(evt.key);
+            if (possNoteNum === undefined) {
+                return;
+            }
+            this.noteUp(possNoteNum);
+        }
+        // Configuring
+        loadMappingConfig(config) {
+            this.keyMappingConfig = config;
+            this.keyToNoteNum = new Map();
+            config.ordering.forEach((key, index) => {
+                this.keyToNoteNum.set(key, index + config.defaultStartingNoteNum);
+            });
+        }
+    }
+
     class MelodocUi extends HTMLElement {
         constructor() {
             super();
             this.editor = new MelodocEditor();
+            const debouncedKeyboard = new DebouncedKeyboard();
+            document.onkeydown = evt => {
+                debouncedKeyboard.keyDown(evt);
+            };
+            document.onkeyup = evt => {
+                debouncedKeyboard.keyUp(evt);
+            };
+            const pianoKeyboard = new PianoKeyboard();
+            debouncedKeyboard.onDebouncedKeyDown((evt) => {
+                pianoKeyboard.keyDown(evt);
+            });
+            debouncedKeyboard.onDebouncedKeyUp((evt) => {
+                pianoKeyboard.keyUp(evt);
+            });
+            pianoKeyboard.onNoteDown((noteNum) => {
+                console.log(noteNum);
+                // this.editor.
+            });
         }
         connectedCallback() {
-            this.innerHTML = `MelodocUi`;
-            // document.onkeydown = evt => {
-            //   evt.code;
-            // }
+            // this.innerHTML = `MelodocUi`;
         }
         loadSerializedData(data) {
             const song = new Song(dataToSongApi(data));
@@ -237,7 +386,7 @@
     }
 
     const urlParams = getUrlParamsMap();
-    const data = urlParams.has('data') ? urlParams.get('data') : '';
+    const data = urlParams.has('data') ? urlParams.get('data') : '{}';
     main(data);
 
 })();
