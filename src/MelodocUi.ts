@@ -1,36 +1,47 @@
 import { SongApi } from "./tsModules/melodoc-api/interface";
 import { Song } from "./tsModules/melodoc-api/impl";
 import { MelodocEditor } from "./tsModules/melodoc-editor/editor";
-import { DebouncedKeyboard } from "./debouncedKeyboard";
 import { PianoKeyboard } from "./tsModules/piano-keyboard/pianoKeyboard";
+import { HotkeysMgr, makeMacHotkey } from "./tsModules/hotkeys-mgr/hotkeysMgr";
 
 export class MelodocUi extends HTMLElement {
   editor: MelodocEditor;
   constructor() {
     super();
     this.editor = new MelodocEditor();
+    const pianoKeyboard = new PianoKeyboard();
+    function blah(evt: Event) {
+      console.log('hi');
+      evt.preventDefault();
+    }
 
-    const debouncedKeyboard = new DebouncedKeyboard();
+    const hotkeysMgr = new HotkeysMgr([
+      makeMacHotkey('cmd+enter', blah),
+    ]);
+
     document.onkeydown = evt => {
-      debouncedKeyboard.keyDown(evt);
+      // Debouncing
+      if (evt.repeat) {
+        return;
+      }
+      pianoKeyboard.keyDown(evt);
+      hotkeysMgr.keyDown(evt);
     }
     document.onkeyup = evt => {
-      debouncedKeyboard.keyUp(evt);
+      // Debouncing
+      if (evt.repeat) {
+        return;
+      }
+      pianoKeyboard.keyUp(evt);
     }
 
-    const pianoKeyboard = new PianoKeyboard();
-    debouncedKeyboard.onDebouncedKeyDown((evt: KeyboardEvent) => {
-      pianoKeyboard.keyDown(evt);
-    });
-    debouncedKeyboard.onDebouncedKeyUp((evt: KeyboardEvent) => {
-      pianoKeyboard.keyUp(evt);
-    });
     pianoKeyboard.onNoteDown((noteNum: number) => {
       console.log(noteNum);
       // this.editor.
     });
 
   }
+
   connectedCallback() {
     // this.innerHTML = `MelodocUi`;
   }

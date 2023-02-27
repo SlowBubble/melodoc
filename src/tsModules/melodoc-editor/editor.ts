@@ -9,4 +9,9 @@ export class MelodocEditor {
   loadSong(song: Song) {
     this.song = song;
   }
+
+
+  upsert() {
+
+  }
 }

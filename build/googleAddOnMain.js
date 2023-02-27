@@ -185,6 +185,8 @@
         loadSong(song) {
             this.song = song;
         }
+        upsert() {
+        }
     }
 
     /**
@@ -219,29 +221,6 @@
             this.onOffSwitch = onOrOff => {
                 this.isOn = onOrOff;
             };
-        }
-    }
-
-    class DebouncedKeyboard {
-        constructor() {
-            this.enabled = true;
-            this.keyDownCodes = new Set();
-            [this.debouncedKeyDown, this.onDebouncedKeyDown] = makePubSub();
-            [this.debouncedKeyUp, this.onDebouncedKeyUp] = makePubSub();
-        }
-        keyDown(evt) {
-            if (this.keyDownCodes.has(evt.code)) {
-                return;
-            }
-            this.keyDownCodes.add(evt.code);
-            this.debouncedKeyDown(evt);
-        }
-        keyUp(evt) {
-            this.keyDownCodes.delete(evt.code);
-            if (!this.enabled) {
-                return;
-            }
-            this.debouncedKeyUp(evt);
         }
     }
 
@@ -321,24 +300,202 @@
         }
     }
 
+    function deepEqual(x, y) {
+        const ok = Object.keys, tx = typeof x, ty = typeof y;
+        return x && y && tx === 'object' && tx === ty ? (ok(x).length === ok(y).length &&
+            ok(x).every((key) => deepEqual(x[key], y[key]))) : (x === y);
+    }
+
+    const keyToCodeMapping = new Map([
+        // Nav/control
+        ['esc', 'Escape'],
+        ['caps', 'CapsLock'],
+        ['backspace', 'Backspace'],
+        ['tab', 'Tab'],
+        ['left', 'ArrowLeft'],
+        ['right', 'ArrowRight'],
+        ['down', 'ArrowDown'],
+        ['up', 'ArrowUp'],
+        ['enter', 'Enter'],
+        // Not universal
+        ['home', 'Home'],
+        ['end', 'End'],
+        ['pageup', 'PageUp'],
+        ['pagedown', 'PageDown'],
+        // Numeric
+        ['1', 'Digit1'],
+        ['2', 'Digit2'],
+        ['3', 'Digit3'],
+        ['4', 'Digit4'],
+        ['5', 'Digit5'],
+        ['6', 'Digit6'],
+        ['7', 'Digit7'],
+        ['8', 'Digit8'],
+        ['9', 'Digit9'],
+        ['0', 'Digit0'],
+        // Symbols
+        ['`', 'Backquote'],
+        ['-', 'Minus'],
+        ['=', 'Equal'],
+        // Letters
+        ['a', 'KeyA'],
+        ['b', 'KeyB'],
+        ['c', 'KeyC'],
+        ['d', 'KeyD'],
+        ['e', 'KeyE'],
+        ['f', 'KeyF'],
+        ['g', 'KeyG'],
+        ['h', 'KeyH'],
+        ['i', 'KeyI'],
+        ['j', 'KeyJ'],
+        ['k', 'KeyK'],
+        ['l', 'KeyL'],
+        ['m', 'KeyM'],
+        ['n', 'KeyN'],
+        ['o', 'KeyO'],
+        ['p', 'KeyP'],
+        ['q', 'KeyQ'],
+        ['r', 'KeyR'],
+        ['s', 'KeyS'],
+        ['t', 'KeyT'],
+        ['u', 'KeyU'],
+        ['v', 'KeyV'],
+        ['w', 'KeyW'],
+        ['x', 'KeyX'],
+        ['y', 'KeyY'],
+        ['z', 'KeyZ'],
+    ]);
+    // 0x001A	"BracketLeft"	"BracketLeft"
+    // 0x001B	"BracketRight"	"BracketRight"
+    // 0x001C	"Enter"	"Enter"
+    // 0x001D	"ControlLeft"	"ControlLeft"
+    // 0x001E	"KeyA"	"KeyA"
+    // 0x001F	"KeyS"	"KeyS"
+    // 0x0020	"KeyD"	"KeyD"
+    // 0x0021	"KeyF"	"KeyF"
+    // 0x0022	"KeyG"	"KeyG"
+    // 0x0023	"KeyH"	"KeyH"
+    // 0x0024	"KeyJ"	"KeyJ"
+    // 0x0025	"KeyK"	"KeyK"
+    // 0x0026	"KeyL"	"KeyL"
+    // 0x0027	"Semicolon"	"Semicolon"
+    // 0x0028	"Quote"	"Quote"
+    // 0x0029	"Backquote"	"Backquote"
+    // 0x002A	"ShiftLeft"	"ShiftLeft"
+    // 0x002B	"Backslash"	"Backslash"
+    // 0x002C	"KeyZ"	"KeyZ"
+    // 0x002D	"KeyX"	"KeyX"
+    // 0x002E	"KeyC"	"KeyC"
+    // 0x002F	"KeyV"	"KeyV"
+    // 0x0030	"KeyB"	"KeyB"
+    // 0x0031	"KeyN"	"KeyN"
+    // 0x0032	"KeyM"	"KeyM"
+    // 0x0033	"Comma"	"Comma"
+    // 0x0034	"Period"	"Period"
+    // 0x0035	"Slash"	"Slash"
+    // 0x0036	"ShiftRight"	"ShiftRight"
+    // 0x0037	"NumpadMultiply"	"NumpadMultiply"
+    // 0x0038	"AltLeft"	"AltLeft"
+    // 0x0039	"Space"	"Space"
+    // 0x003A	"CapsLock"	"CapsLock"
+
+    // TODO see if it's easy to create a helper to
+    // cmd will be translated to ctrl for non-Mac OS.
+    // Usage "cmd+a", "shift+alt+b"
+    function makeMacHotkey(hotkeyStr, handler) {
+        const errMsg = 'Unable to parse: ' + hotkeyStr;
+        const keys = hotkeyStr.toLowerCase().split('+');
+        const finalKey = keys[keys.length - 1];
+        const possCode = keyToCodeMapping.get(finalKey);
+        if (!possCode) {
+            // warn before throwing to get a more accurate stack trace.
+            console.warn(errMsg);
+            throw errMsg;
+        }
+        const keyInfo = new KeyInfo({ code: possCode });
+        keys.slice(0, keys.length - 1).forEach(key => {
+            switch (key) {
+                case 'cmd':
+                    // TODO handle non-mac.
+                    keyInfo.metaKey = true;
+                    return;
+                case 'ctrl':
+                    // TODO handle non-mac.
+                    keyInfo.ctrlKey = true;
+                    return;
+                case 'alt':
+                    keyInfo.altKey = true;
+                    return;
+                case 'shift':
+                    keyInfo.shiftKey = true;
+                default:
+                    console.warn(errMsg);
+                    throw errMsg;
+            }
+        });
+        return new HotkeyInfo(keyInfo, evt => handler(evt));
+    }
+    class KeyInfo {
+        constructor({ code = '', metaKey = false, ctrlKey = false, altKey = false, shiftKey = false, }) {
+            this.code = code;
+            this.metaKey = metaKey;
+            this.ctrlKey = ctrlKey;
+            this.altKey = altKey;
+            this.shiftKey = shiftKey;
+        }
+        equals(that) {
+            return deepEqual(this, that);
+        }
+    }
+    class HotkeyInfo {
+        constructor(keyInfo, handler) {
+            this.keyInfo = keyInfo;
+            this.handler = handler;
+        }
+    }
+    class HotkeysMgr {
+        constructor(hotkeyInfos) {
+            this.hotkeyInfos = hotkeyInfos || [];
+        }
+        addShortcut(info) {
+            this.hotkeyInfos.push(info);
+        }
+        keyDown(evt) {
+            this.hotkeyInfos.forEach(hotkeyInfo => {
+                if (hotkeyInfo.keyInfo.equals(new KeyInfo(evt))) {
+                    hotkeyInfo.handler(evt);
+                }
+            });
+        }
+    }
+
     class MelodocUi extends HTMLElement {
         constructor() {
             super();
             this.editor = new MelodocEditor();
-            const debouncedKeyboard = new DebouncedKeyboard();
+            const pianoKeyboard = new PianoKeyboard();
+            function blah(evt) {
+                console.log('hi');
+                evt.preventDefault();
+            }
+            const hotkeysMgr = new HotkeysMgr([
+                makeMacHotkey('cmd+enter', blah),
+            ]);
             document.onkeydown = evt => {
-                debouncedKeyboard.keyDown(evt);
+                // Debouncing
+                if (evt.repeat) {
+                    return;
+                }
+                pianoKeyboard.keyDown(evt);
+                hotkeysMgr.keyDown(evt);
             };
             document.onkeyup = evt => {
-                debouncedKeyboard.keyUp(evt);
-            };
-            const pianoKeyboard = new PianoKeyboard();
-            debouncedKeyboard.onDebouncedKeyDown((evt) => {
-                pianoKeyboard.keyDown(evt);
-            });
-            debouncedKeyboard.onDebouncedKeyUp((evt) => {
+                // Debouncing
+                if (evt.repeat) {
+                    return;
+                }
                 pianoKeyboard.keyUp(evt);
-            });
+            };
             pianoKeyboard.onNoteDown((noteNum) => {
                 console.log(noteNum);
                 // this.editor.
