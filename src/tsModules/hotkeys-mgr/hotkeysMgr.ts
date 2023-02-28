@@ -42,6 +42,24 @@ export function makeMacHotkey(hotkeyStr: string, handler: HotkeyHandler) {
   return new HotkeyInfo(keyInfo, evt => handler(evt));
 }
 
+// The reason for having a function with no default is to
+// ensure we are only adding fields that are a subset of KeyboardEvent
+function makeKeyInfoWithoutDefault({
+    code,
+    metaKey,
+    ctrlKey,
+    altKey,
+    shiftKey,
+  }) {
+  return new KeyInfo({
+    code,
+    metaKey,
+    ctrlKey,
+    altKey,
+    shiftKey,
+  });
+}
+
 export class KeyInfo {
   code: string;
   metaKey: boolean;
@@ -89,7 +107,7 @@ export class HotkeysMgr {
 
   keyDown(evt: KeyboardEvent) {
     this.hotkeyInfos.forEach(hotkeyInfo => {
-      if (hotkeyInfo.keyInfo.equals(new KeyInfo(evt))) {
+      if (hotkeyInfo.keyInfo.equals(makeKeyInfoWithoutDefault(evt))) {
         hotkeyInfo.handler(evt);
       }
     });

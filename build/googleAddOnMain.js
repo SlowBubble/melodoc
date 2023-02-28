@@ -190,9 +190,10 @@
     }
 
     /**
+     * Note that this only supports 1 arg for the HandlerFunc.
      * Usage:
-        const [noteOnPub, noteOnSub] = pubsub.makePubSub();
-        noteOnSub(data => { console.log('Received', data); });
+        const [noteOnPub, noteOnSub] = pubsub.makePubSub<number>();
+        noteOnSub((data: number) => { console.log('Received', data); });
         noteOnPub(42);
      *
      *
@@ -208,10 +209,10 @@
             // This weird way of defining methods is needed to support
             // the usage of passing EvtMgr.pub instead of EvtMgr into
             // other callers, so that this.handlers is defined.
-            this.pub = (...args) => {
+            this.pub = (arg) => {
                 this.handlers.forEach(handlerFunc => {
                     if (this.isOn) {
-                        handlerFunc(...args);
+                        handlerFunc(arg);
                     }
                 });
             };
@@ -435,6 +436,17 @@
         });
         return new HotkeyInfo(keyInfo, evt => handler(evt));
     }
+    // The reason for having a function with no default is to
+    // ensure we are only adding fields that are a subset of KeyboardEvent
+    function makeKeyInfoWithoutDefault({ code, metaKey, ctrlKey, altKey, shiftKey, }) {
+        return new KeyInfo({
+            code,
+            metaKey,
+            ctrlKey,
+            altKey,
+            shiftKey,
+        });
+    }
     class KeyInfo {
         constructor({ code = '', metaKey = false, ctrlKey = false, altKey = false, shiftKey = false, }) {
             this.code = code;
@@ -462,7 +474,7 @@
         }
         keyDown(evt) {
             this.hotkeyInfos.forEach(hotkeyInfo => {
-                if (hotkeyInfo.keyInfo.equals(new KeyInfo(evt))) {
+                if (hotkeyInfo.keyInfo.equals(makeKeyInfoWithoutDefault(evt))) {
                     hotkeyInfo.handler(evt);
                 }
             });
