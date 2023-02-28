@@ -1,5 +1,5 @@
 import { fromInt, Frac } from "../fraction/fraction";
-import { AccidentalEnum, InstrumentEnum, LetterEnum, NonNegativeInt, NoteGpApi, PitchApi, SongApi, SpellingApi, StaffApi, StaffTypeEnum, VoiceApi } from "./interface";
+import { AccidentalEnum, CursorApi, InstrumentEnum, LetterEnum, NonNegativeInt, NoteGpApi, PitchApi, SelectionApi, SongApi, SpellingApi, StaffApi, StaffTypeEnum, VoiceApi } from "./interface";
 
 // The class itself does not need to implement SongApi, e.g. extra internal fields,
 // but toApi should return an object that implements SongApi.
@@ -7,18 +7,52 @@ export class Song {
   title: string;
   staffs: Array<Staff>;
   voices: Array<Voice>;
+  // Optional because a song doesn't need a cursor.
+  cursor?: Cursor;
+  selections: Array<Selection>;
   constructor({
     title = '',
     staffs = [],
     voices = [],
+    cursor = undefined,
+    selections = [],
   }: SongApi) {
     this.title = title;
     this.staffs = staffs.map(obj => new Staff(obj));
     this.voices = voices.map(obj => new Voice(obj));
+    this.cursor = cursor ? new Cursor(cursor) : undefined;
+    this.selections = selections.map(obj => new Selection(obj));
   }
 
   toApi(): SongApi {
     return this;
+  }
+}
+
+export class Selection {
+  startCursor: Cursor;
+  endCursor: Cursor;
+  constructor({
+    startCursor = new Cursor({}),
+    endCursor = new Cursor({}),
+  }: SelectionApi) {
+    this.startCursor = new Cursor(startCursor);
+    this.endCursor = new Cursor(endCursor);
+  }
+}
+
+export class Cursor {
+  voiceIdx: number;
+  time8n: Frac;
+  graceNoteGpIdx: number;
+  constructor({
+    voiceIdx = 0,
+    time8n = fromInt(0),
+    graceNoteGpIdx = 0,
+  }: CursorApi) {
+    this.time8n = new Frac(time8n);
+    this.graceNoteGpIdx = graceNoteGpIdx;
+    this.voiceIdx = voiceIdx;
   }
 }
 

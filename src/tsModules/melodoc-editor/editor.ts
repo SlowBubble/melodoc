@@ -1,4 +1,5 @@
 import { Song } from "../melodoc-api/impl";
+import { WriteOp } from "./editorOps";
 
 export class MelodocEditor {
   song: Song;
@@ -10,8 +11,7 @@ export class MelodocEditor {
     this.song = song;
   }
 
-
-  upsert() {
+  write(op: WriteOp) {
 
   }
 }

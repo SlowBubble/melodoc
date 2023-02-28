@@ -1,11 +1,17 @@
+import { Cursor, NoteGp } from "../melodoc-api/impl";
 import { NoteGpApi } from "../melodoc-api/interface";
 
+// These operations are defined as classes but should
+// also be treated as public interfaces
+// (i.e. should be extended with flexibility and simplicity as the priorities).
+// The field types are concrete types instead of interfaces since we
+// don't need to serialize/persist these operations.
+// TODO Have clients use instanceof to differentiate these operations
+// https://stackoverflow.com/a/35728126
 export type EditorOperation = WriteOp
   | MoveCursorOp
   | RemoveOp
 ;
-// TODO change the Ops into classes so that we can differentiate them
-// https://stackoverflow.com/a/35728126
 
 // The noteGps must be in a connected interval with no gaps.
 // This should be general enough to support:
@@ -22,9 +28,16 @@ export type EditorOperation = WriteOp
 // be filled in a rest.
 // The reason we are doing NoteGp[] instead of NoteGp is to handle insertion of
 // multiple grace notes. 
-export interface WriteOp {
-  noteGps: NoteGpApi[];
+export class WriteOp {
+  noteGps: NoteGp[];
   voiceIdx: number;
+  constructor({
+    noteGps = [],
+    voiceIdx = 0,
+  }) {
+    this.noteGps = noteGps;
+    this.voiceIdx = voiceIdx;
+  }
 }
 
 // The editor will throw an error if you move the cursor inside a non-rest note.
@@ -32,16 +45,12 @@ export interface WriteOp {
 // - grace note
 // - moving inside a long rest.
 export interface MoveCursorOp {
-  // cursor: EditorCursor;
-
-  // start8n: FracApi;
-  // graceNoteGpIdx?: number;
-  // voiceIdx: number;
+  cursor: Cursor;
 }
 
 // Remove noteGps to the right of the cursor
 // (including grace notes that start right on the cursor).
 // The cursor will automatically moved to the specify position to ensure it is in a valid position.
 export interface RemoveOp {
-  // cursor: EditorCursor;
+  cursor: Cursor;
 }

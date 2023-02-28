@@ -15,6 +15,22 @@ export interface SongApi {
   title?: string,
   staffs?: Array<StaffApi>,
   voices?: Array<VoiceApi>,
+  // Helps with sharing the relevant location in a longer piece.
+  cursor?: CursorApi,
+  // Helps with sharing the relevant region in a longer piece.
+  selections?: Array<SelectionApi>
+}
+
+// startCursor and endCursor needs to have the same voiceIdx.
+export interface SelectionApi {
+  startCursor?: CursorApi;
+  endCursor?: CursorApi;
+}
+
+export interface CursorApi {
+  voiceIdx?: number;
+  time8n?: FractionApi;
+  graceNoteGpIdx?: number;
 }
 
 // Keep voices and staffs separate and assign a default staff index to each VoiceApi

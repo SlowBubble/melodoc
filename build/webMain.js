@@ -137,13 +137,28 @@
     // The class itself does not need to implement SongApi, e.g. extra internal fields,
     // but toApi should return an object that implements SongApi.
     class Song {
-        constructor({ title = '', staffs = [], voices = [], }) {
+        constructor({ title = '', staffs = [], voices = [], cursor = undefined, selections = [], }) {
             this.title = title;
             this.staffs = staffs.map(obj => new Staff(obj));
             this.voices = voices.map(obj => new Voice(obj));
+            this.cursor = cursor ? new Cursor(cursor) : undefined;
+            this.selections = selections.map(obj => new Selection(obj));
         }
         toApi() {
             return this;
+        }
+    }
+    class Selection {
+        constructor({ startCursor = new Cursor({}), endCursor = new Cursor({}), }) {
+            this.startCursor = new Cursor(startCursor);
+            this.endCursor = new Cursor(endCursor);
+        }
+    }
+    class Cursor {
+        constructor({ voiceIdx = 0, time8n = fromInt(0), graceNoteGpIdx = 0, }) {
+            this.time8n = new Frac(time8n);
+            this.graceNoteGpIdx = graceNoteGpIdx;
+            this.voiceIdx = voiceIdx;
         }
     }
     class Staff {
@@ -185,7 +200,7 @@
         loadSong(song) {
             this.song = song;
         }
-        upsert() {
+        write(op) {
         }
     }
 
