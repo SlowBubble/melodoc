@@ -7,10 +7,10 @@ import { keyToCodeMapping } from "./keyToCode";
 
 export type HotkeyHandler = (KeyboardEvent) => void;
 // cmd will be translated to ctrl for non-Mac OS.
-// Usage "cmd+a", "shift+alt+b"
+// Usage "cmd a", "shift alt b"
 export function makeMacHotkey(hotkeyStr: string, handler: HotkeyHandler) {
   const errMsg = 'Unable to parse: ' + hotkeyStr;
-  const keys = hotkeyStr.toLowerCase().split('+');
+  const keys = hotkeyStr.toLowerCase().split(/[\+\s]/);
   const finalKey = keys[keys.length - 1];
   const possCode = keyToCodeMapping.get(finalKey);
   if (!possCode) {
@@ -68,7 +68,7 @@ export class KeyInfo {
   shiftKey: boolean;
 
   constructor({
-    code = '',
+    code,
     metaKey = false,
     ctrlKey = false,
     altKey = false,
@@ -81,6 +81,25 @@ export class KeyInfo {
     this.shiftKey = shiftKey;
   }
 
+  // This provides the canonical ordering and representation
+  // of the KeyInfo.
+  toString() {
+    let strBuf: string[] = [];
+    if (this.ctrlKey) {
+      strBuf.push('ctrl');
+    }
+    if (this.metaKey) {
+      strBuf.push('cmd');
+    }
+    if (this.altKey) {
+      strBuf.push('alt');
+    }
+    if (this.shiftKey) {
+      strBuf.push('shift');
+    }
+    strBuf.push(this.code)
+    return strBuf.join(' ');
+  }
   equals(that: KeyInfo) {
     return deepEqual(this, that);
   }
@@ -96,20 +115,21 @@ export class HotkeyInfo {
 }
 
 export class HotkeysMgr {
-  hotkeyInfos: HotkeyInfo[];
+  keyInfoStrToHandler: Map<string, HotkeyHandler>;
   constructor(hotkeyInfos?: HotkeyInfo[]) {
-    this.hotkeyInfos = hotkeyInfos || [];
+    this.keyInfoStrToHandler = new Map();
+    hotkeyInfos?.forEach(info => this.addShortcut(info));
   }
 
   addShortcut(info: HotkeyInfo) {
-    this.hotkeyInfos.push(info);
+    this.keyInfoStrToHandler.set(info.keyInfo.toString(), info.handler);
   }
 
   keyDown(evt: KeyboardEvent) {
-    this.hotkeyInfos.forEach(hotkeyInfo => {
-      if (hotkeyInfo.keyInfo.equals(makeKeyInfoWithoutDefault(evt))) {
-        hotkeyInfo.handler(evt);
-      }
-    });
+    const evtKeyInfoStr = makeKeyInfoWithoutDefault(evt).toString();
+    const possHandler = this.keyInfoStrToHandler.get(evtKeyInfoStr);
+    if (possHandler) {
+      possHandler(evt);
+    }
   }
 }

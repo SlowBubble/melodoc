@@ -16,7 +16,7 @@ export class MelodocUi extends HTMLElement {
     }
 
     const hotkeysMgr = new HotkeysMgr([
-      makeMacHotkey('cmd+enter', blah),
+      makeMacHotkey('cmd enter', blah),
     ]);
 
     document.onkeydown = evt => {

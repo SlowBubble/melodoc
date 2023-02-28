@@ -402,10 +402,10 @@
 
     // TODO see if it's easy to create a helper to
     // cmd will be translated to ctrl for non-Mac OS.
-    // Usage "cmd+a", "shift+alt+b"
+    // Usage "cmd a", "shift alt b"
     function makeMacHotkey(hotkeyStr, handler) {
         const errMsg = 'Unable to parse: ' + hotkeyStr;
-        const keys = hotkeyStr.toLowerCase().split('+');
+        const keys = hotkeyStr.toLowerCase().split(/[\+\s]/);
         const finalKey = keys[keys.length - 1];
         const possCode = keyToCodeMapping.get(finalKey);
         if (!possCode) {
@@ -448,12 +448,31 @@
         });
     }
     class KeyInfo {
-        constructor({ code = '', metaKey = false, ctrlKey = false, altKey = false, shiftKey = false, }) {
+        constructor({ code, metaKey = false, ctrlKey = false, altKey = false, shiftKey = false, }) {
             this.code = code;
             this.metaKey = metaKey;
             this.ctrlKey = ctrlKey;
             this.altKey = altKey;
             this.shiftKey = shiftKey;
+        }
+        // This provides the canonical ordering and representation
+        // of the KeyInfo.
+        toString() {
+            let strBuf = [];
+            if (this.ctrlKey) {
+                strBuf.push('ctrl');
+            }
+            if (this.metaKey) {
+                strBuf.push('cmd');
+            }
+            if (this.altKey) {
+                strBuf.push('alt');
+            }
+            if (this.shiftKey) {
+                strBuf.push('shift');
+            }
+            strBuf.push(this.code);
+            return strBuf.join(' ');
         }
         equals(that) {
             return deepEqual(this, that);
@@ -467,17 +486,18 @@
     }
     class HotkeysMgr {
         constructor(hotkeyInfos) {
-            this.hotkeyInfos = hotkeyInfos || [];
+            this.keyInfoStrToHandler = new Map();
+            hotkeyInfos === null || hotkeyInfos === void 0 ? void 0 : hotkeyInfos.forEach(info => this.addShortcut(info));
         }
         addShortcut(info) {
-            this.hotkeyInfos.push(info);
+            this.keyInfoStrToHandler.set(info.keyInfo.toString(), info.handler);
         }
         keyDown(evt) {
-            this.hotkeyInfos.forEach(hotkeyInfo => {
-                if (hotkeyInfo.keyInfo.equals(makeKeyInfoWithoutDefault(evt))) {
-                    hotkeyInfo.handler(evt);
-                }
-            });
+            const evtKeyInfoStr = makeKeyInfoWithoutDefault(evt).toString();
+            const possHandler = this.keyInfoStrToHandler.get(evtKeyInfoStr);
+            if (possHandler) {
+                possHandler(evt);
+            }
         }
     }
 
@@ -491,7 +511,7 @@
                 evt.preventDefault();
             }
             const hotkeysMgr = new HotkeysMgr([
-                makeMacHotkey('cmd+enter', blah),
+                makeMacHotkey('cmd enter', blah),
             ]);
             document.onkeydown = evt => {
                 // Debouncing
