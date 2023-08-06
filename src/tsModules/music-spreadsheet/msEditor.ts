@@ -1,7 +1,8 @@
+import { addKeyValToUrl } from "../../url";
 import { evtIsHotkey, evtIsLikelyInput, evtToStandardString } from "../hotkey-util/hotkeyUtil";
 import { getTextIdxOnTheLeft, getTextIdxOnTheRight } from "../textarea-spreadsheet/textUtil";
 import { KeydownHandlerOutput, TsEditor, shouldApplyBrowserDefaultWithoutRerendering, shouldPreventDefaultWithoutRerendering, shouldRerenderAndPreventDefault } from "../textarea-spreadsheet/tsEditor";
-import { genLink } from "./genLink";
+import { genMidiChordSheetLink } from "./genLink";
 import { mapKeyToNoteNum } from "./keyToNoteNumMapping";
 import { noteNumToAbc } from "./noteNumToAbcMapping";
 
@@ -21,8 +22,14 @@ export class MsEditor {
     });
   }
 
-  getLink() {
-    return genLink(this.tsEditor.textTable);
+  getMidiChordSheetLink() {
+    return genMidiChordSheetLink(this.tsEditor.textTable);
+  }
+
+  getMelodocLink() {
+    const baseLink = 'https://slowbubble.github.io/melodoc/';
+    const textContent = this.tsEditor.textTable.toString(true);
+    return addKeyValToUrl(baseLink, 'data', textContent);
   }
 
   handleKeyDown(evt: KeyboardEvent): KeydownHandlerOutput {

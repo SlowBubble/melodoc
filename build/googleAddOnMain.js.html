@@ -285,8 +285,11 @@
         static fromString(str, columnDelimiter = COLUMN_DELIMITER) {
             return new TextTable(stringToCells(str), columnDelimiter);
         }
-        toString() {
-            return this.cells.map(row => row.map(cell => cell.text).join(this.columnDelimiter)).join(ROW_DELIMITER);
+        toString(trim = false) {
+            return this.cells
+                .map(row => row.map(cell => trim ? cell.text.trim() : cell.text)
+                .join(this.columnDelimiter))
+                .join(ROW_DELIMITER);
         }
         getCellsInArray() {
             return this.cells.flatMap(row => row);
@@ -672,6 +675,41 @@
     }
     customElements.define('textarea-spreadsheet-ui', TsUi);
 
+    // Pure functions
+    function addKeyValToUrl(startingUrl, key, val) {
+        const url = toInternalUrl(startingUrl);
+        if (val !== undefined) {
+            url.searchParams.set(key, val);
+        }
+        else {
+            url.searchParams.delete(key);
+        }
+        return toExternalUrlStr(url);
+    }
+    function toInternalUrl(externalUrlStr) {
+        return new URL(externalUrlStr.replace('#', '?'));
+    }
+    function toExternalUrlStr(internalUrl) {
+        internalUrl.searchParams.sort();
+        return internalUrl.href.replace('?', '#');
+    }
+    function getUrlParamsMapFromString(urlStr) {
+        const keyVals = new Map();
+        if (!urlStr) {
+            return keyVals;
+        }
+        const url = toInternalUrl(urlStr);
+        url.searchParams.forEach(function (value, key) {
+            keyVals.set(key, value);
+        });
+        return keyVals;
+    }
+    // Impure functions based on the document url and can mutate the document.
+    function setUrlParam(key, val) {
+        const externalUrlStr = addKeyValToUrl(document.URL, key, val);
+        window.location.hash = externalUrlStr.includes('#') ? externalUrlStr.split('#')[1] : '';
+    }
+
     // The text index will be on the right of any spaces
     function getTextIdxOnTheLeft(text, currTextIdx) {
         const tokenInfos = getTokenInfos(text);
@@ -714,7 +752,7 @@
         return tokenInfos.length - 1;
     }
 
-    function genLink(textTable) {
+    function genMidiChordSheetLink(textTable) {
         const json = textTableToArrOfArrs(textTable);
         const jsonStr = JSON.stringify(json);
         return jsonStringToLink(jsonStr);
@@ -828,8 +866,13 @@
                 return this.tsEditor.defaultKeydownHandler(evt);
             });
         }
-        getLink() {
-            return genLink(this.tsEditor.textTable);
+        getMidiChordSheetLink() {
+            return genMidiChordSheetLink(this.tsEditor.textTable);
+        }
+        getMelodocLink() {
+            const baseLink = 'https://slowbubble.github.io/melodoc/';
+            const textContent = this.tsEditor.textTable.toString(true);
+            return addKeyValToUrl(baseLink, 'data', textContent);
         }
         handleKeyDown(evt) {
             // google add-on shortcuts;
@@ -1005,9 +1048,10 @@
     }
 
     class MsUi extends HTMLElement {
-        constructor(msEditor) {
+        constructor(msEditor, renderHandler = null) {
             super();
             this.msEditor = msEditor;
+            this.renderHandler = renderHandler;
         }
         connectedCallback() {
             const shadowRoot = this.attachShadow({ mode: 'open' });
@@ -1019,8 +1063,14 @@
             const iframe = shadowRoot.getElementById('sheet-music-iframe');
             this.msEditor = new MsEditor(tsUi.tsEditor);
             tsUi.tsEditor.onRender(() => {
-                iframe.src = this.msEditor.getLink();
+                iframe.src = this.msEditor.getMidiChordSheetLink();
+                if (this.renderHandler) {
+                    this.renderHandler();
+                }
             });
+        }
+        onRender(renderHandler) {
+            this.renderHandler = renderHandler;
         }
     }
     const html = `
@@ -1034,8 +1084,8 @@
 
     function setupGoogleAddOnActions(msEditor) {
         // TODO add a shortcut for resizing modal.
-        document.getElementById('add-image-button')?.addEventListener('keydown', () => addImageWithLinkToDoc(msEditor.getLink()));
-        msEditor.customHotkeyToAction.set('shift i', () => addImageWithLinkToDoc(msEditor.getLink()));
+        document.getElementById('add-image-button')?.addEventListener('keydown', () => addImageWithLinkToDoc(msEditor.getMelodocLink()));
+        msEditor.customHotkeyToAction.set('shift i', () => addImageWithLinkToDoc(msEditor.getMelodocLink()));
     }
     function onSuccess() {
         google.script.host.close();
@@ -1076,32 +1126,24 @@
         return typeof google !== 'undefined';
     }
 
-    function toInternalUrl(externalUrlStr) {
-        return new URL(externalUrlStr.replace('#', '?'));
-    }
-    function getUrlParamsMapFromString(urlStr) {
-        const keyVals = new Map();
-        if (!urlStr) {
-            return keyVals;
-        }
-        const url = toInternalUrl(urlStr);
-        url.searchParams.forEach(function (value, key) {
-            keyVals.set(key, value);
-        });
-        return keyVals;
-    }
-
     function main(url) {
         const mainDiv = document.getElementById('main');
         mainDiv.innerHTML = '';
         const msUiElt = document.createElement('music-spreadsheet-ui');
         mainDiv.appendChild(msUiElt);
         const urlParams = getUrlParamsMapFromString(url);
-        const data = urlParams.has('data') ? urlParams.get('data') : '[]';
-        console.log('data', data);
-        // msUiElt.msEditor.tsEditor.textTable = TextTable.fromString(dataToTextAreaString(data))
+        const data = urlParams.has('data') ? urlParams.get('data') : '';
+        console.log(data);
+        msUiElt.msEditor.tsEditor.textTable = TextTable.fromString(data);
+        msUiElt.msEditor.tsEditor.render();
         if (isInGoogleAddOn()) {
             setupGoogleAddOnActions(msUiElt.msEditor);
+        }
+        else {
+            msUiElt.onRender(() => {
+                const textContent = msUiElt.msEditor.tsEditor.textTable.toString(true);
+                setUrlParam('data', textContent);
+            });
         }
     }
 

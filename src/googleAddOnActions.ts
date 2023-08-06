@@ -5,9 +5,9 @@ declare const google: any;
 export function setupGoogleAddOnActions(msEditor: MsEditor) {
   // TODO add a shortcut for resizing modal.
   document.getElementById('add-image-button')?.addEventListener(
-    'keydown', () => addImageWithLinkToDoc(msEditor.getLink()));
+    'keydown', () => addImageWithLinkToDoc(msEditor.getMelodocLink()));
   msEditor.customHotkeyToAction.set(
-    'shift i', () => addImageWithLinkToDoc(msEditor.getLink()));
+    'shift i', () => addImageWithLinkToDoc(msEditor.getMelodocLink()));
 }
 
 function onSuccess() {

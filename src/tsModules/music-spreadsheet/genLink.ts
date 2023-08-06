@@ -1,6 +1,6 @@
 import { TextTable } from "../textarea-spreadsheet/textTable";
 
-export function genLink(textTable: TextTable) {
+export function genMidiChordSheetLink(textTable: TextTable) {
   const json = textTableToArrOfArrs(textTable);
   const jsonStr = JSON.stringify(json);
   return jsonStringToLink(jsonStr);

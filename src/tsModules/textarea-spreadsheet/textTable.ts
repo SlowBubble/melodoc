@@ -9,8 +9,11 @@ export class TextTable {
   static fromString(str: string, columnDelimiter = COLUMN_DELIMITER): TextTable {
     return new TextTable(stringToCells(str), columnDelimiter);
   }
-  toString(): string {
-    return this.cells.map(row => row.map(cell => cell.text).join(this.columnDelimiter)).join(ROW_DELIMITER);
+  toString(trim=false): string {
+    return this.cells
+      .map(row => row.map(cell => trim ? cell.text.trim() : cell.text)
+      .join(this.columnDelimiter))
+      .join(ROW_DELIMITER);
   }
   getCellsInArray() {
     return this.cells.flatMap(row => row);

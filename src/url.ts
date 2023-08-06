@@ -1,13 +1,13 @@
 
-export function setUrlParam(key: string, val: string) {
-  const url = toInternalUrl(document.URL);
+// Pure functions
+export function addKeyValToUrl(startingUrl: string, key: string, val: string) {
+  const url = toInternalUrl(startingUrl);
   if (val !== undefined) {
     url.searchParams.set(key, val);
   } else {
     url.searchParams.delete(key);
   }
-  const externalUrlStr = toExternalUrlStr(url);
-  window.location.hash = externalUrlStr.includes('#') ? externalUrlStr.split('#')[1] : '';
+  return toExternalUrlStr(url);
 }
 
 export function toInternalUrl(externalUrlStr: string) {
@@ -17,10 +17,6 @@ export function toInternalUrl(externalUrlStr: string) {
 export function toExternalUrlStr(internalUrl: URL) {
   internalUrl.searchParams.sort();
   return internalUrl.href.replace('?','#');
-}
-
-export function getUrlParamsMap() {
-  return getUrlParamsMapFromString(document.URL);
 }
 
 export function getUrlParamsMapFromString(urlStr: string) {
@@ -33,5 +29,14 @@ export function getUrlParamsMapFromString(urlStr: string) {
     keyVals.set(key, value);
   });
   return keyVals;
+}
 
+// Impure functions based on the document url and can mutate the document.
+export function setUrlParam(key: string, val: string) {
+  const externalUrlStr = addKeyValToUrl(document.URL, key, val);
+  window.location.hash = externalUrlStr.includes('#') ? externalUrlStr.split('#')[1] : '';
+}
+
+export function getUrlParamsMap() {
+  return getUrlParamsMapFromString(document.URL);
 }

@@ -1,9 +1,8 @@
 import { TsUi } from "../textarea-spreadsheet/tsUi";
-import { genLink } from "./genLink";
 import { MsEditor } from "./msEditor";
 
 export class MsUi extends HTMLElement {
-  constructor(public msEditor: MsEditor) {
+  constructor(public msEditor: MsEditor, private renderHandler: Function | null = null) {
     super();
   }
   connectedCallback() {
@@ -16,8 +15,14 @@ export class MsUi extends HTMLElement {
     const iframe = <HTMLIFrameElement>shadowRoot.getElementById('sheet-music-iframe');
     this.msEditor = new MsEditor(tsUi.tsEditor);
     tsUi.tsEditor.onRender(() => {
-      iframe.src = this.msEditor.getLink();
+      iframe.src = this.msEditor.getMidiChordSheetLink();
+      if (this.renderHandler) {
+        this.renderHandler();      
+      }
     });
+  }
+  onRender(renderHandler: Function) {
+    this.renderHandler = renderHandler;
   }
 }
 
