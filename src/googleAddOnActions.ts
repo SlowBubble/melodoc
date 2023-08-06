@@ -8,6 +8,8 @@ export function setupGoogleAddOnActions(msEditor: MsEditor) {
     'keydown', () => addImageWithLinkToDoc(msEditor.getMelodocLink()));
   msEditor.customHotkeyToAction.set(
     'shift i', () => addImageWithLinkToDoc(msEditor.getMelodocLink()));
+  // Autofocus does not work for google add-on, so focus explicitly.
+  msEditor.tsEditor.textarea.focus();
 }
 
 function onSuccess() {

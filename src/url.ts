@@ -1,4 +1,6 @@
-
+// NOTE: this library only works for source url that doesn't have any query param
+// i.e. ?a=b. Instead it should use #a=b
+// If you have to use ?, such as for local file, then?
 // Pure functions
 export function addKeyValToUrl(startingUrl: string, key: string, val: string) {
   const url = toInternalUrl(startingUrl);
@@ -11,6 +13,11 @@ export function addKeyValToUrl(startingUrl: string, key: string, val: string) {
 }
 
 export function toInternalUrl(externalUrlStr: string) {
+  if (externalUrlStr.includes('?')) {
+    // throw `URL should not contain ?: ${externalUrlStr}`;
+    console.warn(`URL should not contain ?: ${externalUrlStr}`);
+    externalUrlStr = externalUrlStr.replace('?', '');
+  }
   return new URL(externalUrlStr.replace('#','?'));
 }
 

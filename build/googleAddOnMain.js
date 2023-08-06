@@ -674,6 +674,9 @@
     }
     customElements.define('textarea-spreadsheet-ui', TsUi);
 
+    // NOTE: this library only works for source url that doesn't have any query param
+    // i.e. ?a=b. Instead it should use #a=b
+    // If you have to use ?, such as for local file, then?
     // Pure functions
     function addKeyValToUrl(startingUrl, key, val) {
         const url = toInternalUrl(startingUrl);
@@ -686,6 +689,11 @@
         return toExternalUrlStr(url);
     }
     function toInternalUrl(externalUrlStr) {
+        if (externalUrlStr.includes('?')) {
+            // throw `URL should not contain ?: ${externalUrlStr}`;
+            console.warn(`URL should not contain ?: ${externalUrlStr}`);
+            externalUrlStr = externalUrlStr.replace('?', '');
+        }
         return new URL(externalUrlStr.replace('#', '?'));
     }
     function toExternalUrlStr(internalUrl) {
@@ -869,7 +877,8 @@
             return genMidiChordSheetLink(this.tsEditor.textTable);
         }
         getMelodocLink() {
-            const baseLink = 'https://slowbubble.github.io/melodoc/';
+            let baseLink = 'https://slowbubble.github.io/melodoc/';
+            // baseLink = 'http://localhost:8000/';
             const textContent = this.tsEditor.textTable.toString(true);
             return addKeyValToUrl(baseLink, 'data', textContent);
         }
@@ -1085,6 +1094,8 @@
         // TODO add a shortcut for resizing modal.
         document.getElementById('add-image-button')?.addEventListener('keydown', () => addImageWithLinkToDoc(msEditor.getMelodocLink()));
         msEditor.customHotkeyToAction.set('shift i', () => addImageWithLinkToDoc(msEditor.getMelodocLink()));
+        // Autofocus does not work for google add-on, so focus explicitly.
+        msEditor.tsEditor.textarea.focus();
     }
     function onSuccess() {
         google.script.host.close();
@@ -1132,7 +1143,6 @@
         mainDiv.appendChild(msUiElt);
         const urlParams = getUrlParamsMapFromString(url);
         const data = urlParams.has('data') ? urlParams.get('data') : '';
-        console.log(data);
         msUiElt.msEditor.tsEditor.textTable = TextTable.fromString(data);
         msUiElt.msEditor.tsEditor.render();
         if (isInGoogleAddOn()) {

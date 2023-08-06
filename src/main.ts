@@ -15,7 +15,6 @@ export function main(url: string) {
 
   const urlParams = getUrlParamsMapFromString(url);
   const data = urlParams.has('data') ? urlParams.get('data') : '';
-  console.log(data);
   msUiElt.msEditor.tsEditor.textTable = TextTable.fromString(data);
   msUiElt.msEditor.tsEditor.render();
 
@@ -28,8 +27,4 @@ export function main(url: string) {
     });
   }
 
-}
-
-function dataToTextAreaString(data: string) {
-  return '| C | D ';
 }

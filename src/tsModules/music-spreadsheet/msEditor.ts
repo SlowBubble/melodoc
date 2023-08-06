@@ -27,7 +27,8 @@ export class MsEditor {
   }
 
   getMelodocLink() {
-    const baseLink = 'https://slowbubble.github.io/melodoc/';
+    let baseLink = 'https://slowbubble.github.io/melodoc/';
+    // baseLink = 'http://localhost:8000/';
     const textContent = this.tsEditor.textTable.toString(true);
     return addKeyValToUrl(baseLink, 'data', textContent);
   }
