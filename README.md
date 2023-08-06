@@ -1,26 +1,34 @@
 # Goal
 
-- Build a spreadsheet editor inside a textarea HTML element.
-- It should be a UI component that another more complex editor can use
+- Create and edit sheet music as quick as possible.
+
+# How
+
+- Create an Google Doc add-on to edit sheet music in a spreadsheet like editor.
+  - This makes it easy to persist the data.
+  - Allow adding notes/comments to the sheet music.
+- The Web App will just provide a way to share the sheet music publicly
+  - There is no new functionalities it brings other than being able to access
+    - the image without using Google Doc
+    - the sound and editor without using the add-on.
 
 # TODO
 
+- Replace or insert image instead of appending
+
+- TsEditor: applyLint when not in text mode, should remove redundant spaces for each column.
+
+- Adding chords
+
+
 ## Doc Add-On
-
-- Once P0 of MsEditor is done, use that as the image's link so I can parse it into the add-on.
-
 ### P2
-- When selecting a image with the correct link, open with the loaded data
-
+ 
 - Will follow up with a good image in the next iteration
   - Need to port over the minimum amount of code to generate abc js stuff.
   - Then html2canvas can take a screenshot of the svg.
 
 ## MsEditor
-
-### P0
-- Add #data='${textarea.textContent}' to the url and parse it
-
 ### P1
 
 - Adding chords: Should we re-design how to denote a chords row?
@@ -45,7 +53,6 @@
 - shortcut to copy previous cell.
 
 ## MidiChordSheet
-
 - Handle cells with nothing
 - Handle song with only voice and no chords (i.e. part)
 
@@ -59,8 +66,11 @@
 - On click: use the selection range to determine which cell the cursor should be on.
 
 # Done
+
+- Note: url data is encoded using x-www-form-urlencoded format.
+  - This is more readable than that of encodeURIComponent.
+
 ## Doc Add-On
-- Generate a blank image with the link.
 
 ## MsEditor
 
