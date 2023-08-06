@@ -1,580 +1,1069 @@
 (function () {
     'use strict';
 
-    function fromInt(numer) {
-        return new Frac({ numer: numer, denom: 1 });
-    }
-    class Frac {
-        constructor({ numer = 0, denom = 1 }) {
-            if (denom == 0) {
-                throw new Error("denominator must be non-zero.");
-            }
-            // Obtaining a unique rep.
-            if (denom < 0) {
-                numer = -numer;
-                denom = -denom;
-            }
-            const gcd = computeGcd(numer, denom);
-            this.numer = numer / gcd;
-            this.denom = denom / gcd;
-        }
-        getDenom() {
-            return this.denom;
-        }
-        getNumer() {
-            return this.numer;
-        }
-        isWhole() {
-            return this.denom === 1;
-        }
-        plus(f2) {
-            const f1 = this;
-            return new Frac({
-                numer: f1.numer * f2.denom + f2.numer * f1.denom,
-                denom: f1.denom * f2.denom,
-            });
-        }
-        minus(f2) {
-            const f1 = this;
-            return f1.plus(f2.negative());
-        }
-        times(f2) {
-            const f1 = this;
-            return new Frac({
-                numer: f1.numer * f2.numer,
-                denom: f1.denom * f2.denom,
-            });
-        }
-        over(f2) {
-            const f1 = this;
-            return new Frac({
-                numer: f1.numer * f2.denom,
-                denom: f1.denom * f2.numer,
-            });
-        }
-        negative() {
-            return new Frac({
-                numer: -this.numer,
-                denom: this.denom,
-            });
-        }
-        toString() {
-            return `${this.numer}/${this.denom}`;
-        }
-        toFloat() {
-            return this.numer / this.denom;
-        }
-        equals(frac2) {
-            return this.numer === frac2.numer && this.denom === frac2.denom;
-        }
-        lessThan(frac2) {
-            // Assumes that denom is > 0 always.
-            return this.numer * frac2.denom < frac2.numer * this.denom;
-        }
-        leq(frac2) {
-            return this.lessThan(frac2) || this.equals(frac2);
-        }
-        geq(frac2) {
-            return !this.lessThan(frac2);
-        }
-        greaterThan(frac2) {
-            return !this.leq(frac2);
-        }
-        weaklyInside(left, right) {
-            return left.leq(this) && this.leq(right);
-        }
-        strictlyInside(left, right) {
-            return left.lessThan(this) && this.lessThan(right);
-        }
-        fractionalPart() {
-            return this.minus(fromInt(this.wholePart()));
-        }
-        wholePart() {
-            return Math.floor(this.toFloat());
-        }
-    }
-    function computeGcd(x, y) {
-        x = Math.abs(x);
-        y = Math.abs(y);
-        while (y) {
-            var t = y;
-            y = x % y;
-            x = t;
-        }
-        return x;
-    }
-
-    // This API is designed to be
-    // - self-contained
-    // - hopefully general enough to not require fixing corner cases (e.g. accidentals)
-    // - extensible (e.g. add fields in NoteGpApi to alter it for grace note).
-    var InstrumentEnum;
-    (function (InstrumentEnum) {
-        InstrumentEnum["acoustic_grand_piano"] = "acoustic_grand_piano";
-    })(InstrumentEnum || (InstrumentEnum = {}));
-    var StaffTypeEnum;
-    (function (StaffTypeEnum) {
-        StaffTypeEnum["treble"] = "treble";
-        StaffTypeEnum["bass"] = "bass";
-    })(StaffTypeEnum || (StaffTypeEnum = {}));
-    var AccidentalEnum;
-    (function (AccidentalEnum) {
-        AccidentalEnum["sharp"] = "sharp";
-        AccidentalEnum["flat"] = "flat";
-        AccidentalEnum["natural"] = "natural";
-    })(AccidentalEnum || (AccidentalEnum = {}));
-    var LetterEnum;
-    (function (LetterEnum) {
-        LetterEnum["A"] = "A";
-        LetterEnum["B"] = "B";
-        LetterEnum["C"] = "C";
-        LetterEnum["D"] = "D";
-        LetterEnum["E"] = "E";
-        LetterEnum["F"] = "F";
-        LetterEnum["G"] = "G";
-    })(LetterEnum || (LetterEnum = {}));
-
-    // The class itself does not need to implement SongApi, e.g. extra internal fields,
-    // but toApi should return an object that implements SongApi.
-    class Song {
-        constructor({ title = '', staffs = [], voices = [], cursor = undefined, selections = [], }) {
-            this.title = title;
-            this.staffs = staffs.map(obj => new Staff(obj));
-            this.voices = voices.map(obj => new Voice(obj));
-            this.cursor = cursor ? new Cursor(cursor) : undefined;
-            this.selections = selections.map(obj => new Selection(obj));
-        }
-        toApi() {
-            return this;
-        }
-    }
-    class Selection {
-        constructor({ startCursor = new Cursor({}), endCursor = new Cursor({}), }) {
-            this.startCursor = new Cursor(startCursor);
-            this.endCursor = new Cursor(endCursor);
-        }
-    }
-    class Cursor {
-        constructor({ voiceIdx = 0, time8n = fromInt(0), graceNoteGpIdx = 0, }) {
-            this.time8n = new Frac(time8n);
-            this.graceNoteGpIdx = graceNoteGpIdx;
-            this.voiceIdx = voiceIdx;
-        }
-    }
-    class Staff {
-        constructor({ staffType = StaffTypeEnum.treble, }) {
-            this.staffType = staffType;
-        }
-    }
-    class Voice {
-        constructor({ noteGps = [], staffIndex = 0, instrument = InstrumentEnum.acoustic_grand_piano, }) {
-            this.noteGps = noteGps.map(obj => new NoteGp(obj));
-            this.staffIndex = staffIndex;
-            this.instrument = instrument;
-        }
-    }
-    class NoteGp {
-        constructor({ start8n = fromInt(0), end8n = fromInt(0), pitches = [], }) {
-            this.start8n = new Frac(start8n);
-            this.end8n = new Frac(end8n);
-            this.pitches = pitches.map(obj => new Pitch(obj));
-        }
-    }
-    class Pitch {
-        constructor({ noteNum = 0, spelling = {}, }) {
-            this.noteNum = noteNum;
-            this.spelling = new Spelling(spelling);
-        }
-    }
-    class Spelling {
-        constructor({ letter = LetterEnum.C, accidentals = [], }) {
-            this.letter = letter;
-            this.accidentals = accidentals;
-        }
-    }
-
-    class MelodocEditor {
-        constructor() {
-            this.song = new Song({});
-        }
-        loadSong(song) {
-            this.song = song;
-        }
-        write(op) {
-        }
-    }
-
-    /**
-     * Note that this only supports 1 arg for the HandlerFunc.
-     * Usage:
-        const [noteOnPub, noteOnSub] = pubsub.makePubSub<number>();
-        noteOnSub((data: number) => { console.log('Received', data); });
-        noteOnPub(42);
-     *
-     *
-     */
-    function makePubSub() {
-        const evtMgr = new EvtMgr();
-        return [evtMgr.pub, evtMgr.sub, evtMgr.onOffSwitch];
-    }
-    class EvtMgr {
-        constructor() {
-            this.handlers = [];
-            this.isOn = true;
-            // This weird way of defining methods is needed to support
-            // the usage of passing EvtMgr.pub instead of EvtMgr into
-            // other callers, so that this.handlers is defined.
-            this.pub = (arg) => {
-                this.handlers.forEach(handlerFunc => {
-                    if (this.isOn) {
-                        handlerFunc(arg);
-                    }
-                });
-            };
-            this.sub = handlerFunc => {
-                this.handlers.push(handlerFunc);
-            };
-            this.onOffSwitch = onOrOff => {
-                this.isOn = onOrOff;
-            };
-        }
-    }
-
-    const piano123Config = {
-        defaultStartingNoteNum: 47,
-        ordering: [
-            '`',
-            '1',
-            'q',
-            '2',
-            'w',
-            '3',
-            '4',
-            'r',
-            '5',
-            't',
-            '6',
-            'y',
-            '7',
-            '8',
-            'i',
-            '9',
-            'o',
-            '0',
-            '-',
-            '[',
-            '=',
-            ']',
-            "'",
-            '/',
-            ';',
-            'l',
-            ',',
-            'k',
-            'm',
-            'j',
-            'h',
-            'b',
-            'g',
-            'v',
-            'f',
-            'c',
-            'd',
-            's',
-            'z',
-            'a',
-        ],
-    };
-
-    class PianoKeyboard {
-        constructor() {
-            this.loadMappingConfig(piano123Config);
-            [this.noteDown, this.onNoteDown] = makePubSub();
-            [this.noteUp, this.onNoteUp] = makePubSub();
-        }
-        keyDown(evt) {
-            const possNoteNum = this.keyToNoteNum.get(evt.key);
-            if (possNoteNum === undefined) {
-                return;
-            }
-            this.noteDown(possNoteNum);
-        }
-        keyUp(evt) {
-            const possNoteNum = this.keyToNoteNum.get(evt.key);
-            if (possNoteNum === undefined) {
-                return;
-            }
-            this.noteUp(possNoteNum);
-        }
-        // Configuring
-        loadMappingConfig(config) {
-            this.keyMappingConfig = config;
-            this.keyToNoteNum = new Map();
-            config.ordering.forEach((key, index) => {
-                this.keyToNoteNum.set(key, index + config.defaultStartingNoteNum);
-            });
-        }
-    }
-
-    function deepEqual(x, y) {
-        const ok = Object.keys, tx = typeof x, ty = typeof y;
-        return x && y && tx === 'object' && tx === ty ? (ok(x).length === ok(y).length &&
-            ok(x).every((key) => deepEqual(x[key], y[key]))) : (x === y);
-    }
-
-    const keyToCodeMapping = new Map([
-        // Nav/control
-        ['esc', 'Escape'],
-        ['caps', 'CapsLock'],
-        ['backspace', 'Backspace'],
-        ['tab', 'Tab'],
-        ['left', 'ArrowLeft'],
-        ['right', 'ArrowRight'],
-        ['down', 'ArrowDown'],
-        ['up', 'ArrowUp'],
-        ['enter', 'Enter'],
-        // Not universal
-        ['home', 'Home'],
-        ['end', 'End'],
-        ['pageup', 'PageUp'],
-        ['pagedown', 'PageDown'],
+    const codeToHotkey = new Map([
+        ["Escape", "esc"],
+        ["CapsLock", "caps"],
+        ["Backspace", "backspace"],
+        ["Tab", "tab"],
+        ["ArrowLeft", "left"],
+        ["ArrowRight", "right"],
+        ["ArrowDown", "down"],
+        ["ArrowUp", "up"],
+        ["Enter", "enter"],
+        ["MetaLeft", "cmd"],
+        ["ControlLeft", "ctrl"],
+        ["ShiftLeft", "shift"],
+        ["Home", "home"],
+        ["End", "end"],
+        ["PageUp", "pageup"],
+        ["PageDown", "pagedown"],
+        ["Space", "space"],
         // Numeric
-        ['1', 'Digit1'],
-        ['2', 'Digit2'],
-        ['3', 'Digit3'],
-        ['4', 'Digit4'],
-        ['5', 'Digit5'],
-        ['6', 'Digit6'],
-        ['7', 'Digit7'],
-        ['8', 'Digit8'],
-        ['9', 'Digit9'],
-        ['0', 'Digit0'],
+        ["Digit1", "1"],
+        [
+            "Digit2",
+            "2"
+        ],
+        [
+            "Digit3",
+            "3"
+        ],
+        [
+            "Digit4",
+            "4"
+        ],
+        [
+            "Digit5",
+            "5"
+        ],
+        [
+            "Digit6",
+            "6"
+        ],
+        [
+            "Digit7",
+            "7"
+        ],
+        [
+            "Digit8",
+            "8"
+        ],
+        [
+            "Digit9",
+            "9"
+        ],
+        [
+            "Digit0",
+            "0"
+        ],
         // Symbols
-        ['`', 'Backquote'],
-        ['-', 'Minus'],
-        ['=', 'Equal'],
+        [
+            "Backquote",
+            "`"
+        ],
+        [
+            "Minus",
+            "-"
+        ],
+        [
+            "Equal",
+            "="
+        ],
         // Letters
-        ['a', 'KeyA'],
-        ['b', 'KeyB'],
-        ['c', 'KeyC'],
-        ['d', 'KeyD'],
-        ['e', 'KeyE'],
-        ['f', 'KeyF'],
-        ['g', 'KeyG'],
-        ['h', 'KeyH'],
-        ['i', 'KeyI'],
-        ['j', 'KeyJ'],
-        ['k', 'KeyK'],
-        ['l', 'KeyL'],
-        ['m', 'KeyM'],
-        ['n', 'KeyN'],
-        ['o', 'KeyO'],
-        ['p', 'KeyP'],
-        ['q', 'KeyQ'],
-        ['r', 'KeyR'],
-        ['s', 'KeyS'],
-        ['t', 'KeyT'],
-        ['u', 'KeyU'],
-        ['v', 'KeyV'],
-        ['w', 'KeyW'],
-        ['x', 'KeyX'],
-        ['y', 'KeyY'],
-        ['z', 'KeyZ'],
+        [
+            "KeyA",
+            "a"
+        ],
+        [
+            "KeyB",
+            "b"
+        ],
+        [
+            "KeyC",
+            "c"
+        ],
+        [
+            "KeyD",
+            "d"
+        ],
+        [
+            "KeyE",
+            "e"
+        ],
+        [
+            "KeyF",
+            "f"
+        ],
+        [
+            "KeyG",
+            "g"
+        ],
+        [
+            "KeyH",
+            "h"
+        ],
+        [
+            "KeyI",
+            "i"
+        ],
+        [
+            "KeyJ",
+            "j"
+        ],
+        [
+            "KeyK",
+            "k"
+        ],
+        [
+            "KeyL",
+            "l"
+        ],
+        [
+            "KeyM",
+            "m"
+        ],
+        [
+            "KeyN",
+            "n"
+        ],
+        [
+            "KeyO",
+            "o"
+        ],
+        [
+            "KeyP",
+            "p"
+        ],
+        [
+            "KeyQ",
+            "q"
+        ],
+        [
+            "KeyR",
+            "r"
+        ],
+        [
+            "KeyS",
+            "s"
+        ],
+        [
+            "KeyT",
+            "t"
+        ],
+        [
+            "KeyU",
+            "u"
+        ],
+        [
+            "KeyV",
+            "v"
+        ],
+        [
+            "KeyW",
+            "w"
+        ],
+        [
+            "KeyX",
+            "x"
+        ],
+        [
+            "KeyY",
+            "y"
+        ],
+        ["KeyZ", "z"],
+        ['Comma', ','],
+        ['Semicolon', ';'],
+        ['Period', '.'],
+        ['Slash', '/'],
+        ['Quote', `'`],
+        ['BracketLeft', `[`],
+        ['BracketRight', `]`],
+        ['Delete', 'delete'],
     ]);
-    // 0x001A	"BracketLeft"	"BracketLeft"
-    // 0x001B	"BracketRight"	"BracketRight"
     // 0x001C	"Enter"	"Enter"
     // 0x001D	"ControlLeft"	"ControlLeft"
-    // 0x001E	"KeyA"	"KeyA"
-    // 0x001F	"KeyS"	"KeyS"
-    // 0x0020	"KeyD"	"KeyD"
-    // 0x0021	"KeyF"	"KeyF"
-    // 0x0022	"KeyG"	"KeyG"
-    // 0x0023	"KeyH"	"KeyH"
-    // 0x0024	"KeyJ"	"KeyJ"
-    // 0x0025	"KeyK"	"KeyK"
-    // 0x0026	"KeyL"	"KeyL"
-    // 0x0027	"Semicolon"	"Semicolon"
-    // 0x0028	"Quote"	"Quote"
     // 0x0029	"Backquote"	"Backquote"
-    // 0x002A	"ShiftLeft"	"ShiftLeft"
-    // 0x002B	"Backslash"	"Backslash"
-    // 0x002C	"KeyZ"	"KeyZ"
-    // 0x002D	"KeyX"	"KeyX"
-    // 0x002E	"KeyC"	"KeyC"
-    // 0x002F	"KeyV"	"KeyV"
-    // 0x0030	"KeyB"	"KeyB"
-    // 0x0031	"KeyN"	"KeyN"
-    // 0x0032	"KeyM"	"KeyM"
-    // 0x0033	"Comma"	"Comma"
-    // 0x0034	"Period"	"Period"
-    // 0x0035	"Slash"	"Slash"
-    // 0x0036	"ShiftRight"	"ShiftRight"
     // 0x0037	"NumpadMultiply"	"NumpadMultiply"
     // 0x0038	"AltLeft"	"AltLeft"
-    // 0x0039	"Space"	"Space"
     // 0x003A	"CapsLock"	"CapsLock"
 
-    // TODO see if it's easy to create a helper to
-    // cmd will be translated to ctrl for non-Mac OS.
-    // Usage "cmd a", "shift alt b"
-    function makeMacHotkey(hotkeyStr, handler) {
-        const errMsg = 'Unable to parse: ' + hotkeyStr;
-        const keys = hotkeyStr.toLowerCase().split(/[\+\s]/);
-        const finalKey = keys[keys.length - 1];
-        const possCode = keyToCodeMapping.get(finalKey);
-        if (!possCode) {
-            // warn before throwing to get a more accurate stack trace.
-            console.warn(errMsg);
-            throw errMsg;
-        }
-        const keyInfo = new KeyInfo({ code: possCode });
-        keys.slice(0, keys.length - 1).forEach(key => {
-            switch (key) {
-                case 'cmd':
-                    // TODO handle non-mac.
-                    keyInfo.metaKey = true;
-                    return;
-                case 'ctrl':
-                    // TODO handle non-mac.
-                    keyInfo.ctrlKey = true;
-                    return;
-                case 'alt':
-                    keyInfo.altKey = true;
-                    return;
-                case 'shift':
-                    keyInfo.shiftKey = true;
-                default:
-                    console.warn(errMsg);
-                    throw errMsg;
-            }
-        });
-        return new HotkeyInfo(keyInfo, evt => handler(evt));
+    function evtIsHotkey(evt, hotkeyStr) {
+        return evtToStandardString(evt) === toStandardString(hotkeyStr);
     }
-    // The reason for having a function with no default is to
-    // ensure we are only adding fields that are a subset of KeyboardEvent
-    function makeKeyInfoWithoutDefault({ code, metaKey, ctrlKey, altKey, shiftKey, }) {
-        return new KeyInfo({
-            code,
-            metaKey,
-            ctrlKey,
-            altKey,
-            shiftKey,
-        });
+    function evtToStandardString(evt) {
+        return hotkeyInfoToStandardString(evtToHotkeyInfo(evt));
     }
-    class KeyInfo {
-        constructor({ code, metaKey = false, ctrlKey = false, altKey = false, shiftKey = false, }) {
-            this.code = code;
-            this.metaKey = metaKey;
-            this.ctrlKey = ctrlKey;
-            this.altKey = altKey;
-            this.shiftKey = shiftKey;
+    function evtIsLikelyInput(evt) {
+        return (!evt.metaKey && !evt.ctrlKey && !evt.altKey &&
+            evt.key.length === 1);
+    }
+    // Order: cmd/ctrl/alt/shift
+    function toStandardString(hotkeyStr) {
+        const strs = hotkeyStr.split(' ');
+        const endKey = strs[strs.length - 1];
+        const hotkeyInfo = new HotkeyInfo(endKey);
+        const set = new Set(strs);
+        if (set.has('cmd')) {
+            // Mac OS
+            hotkeyInfo.metaKey = true;
         }
-        // This provides the canonical ordering and representation
-        // of the KeyInfo.
-        toString() {
-            let strBuf = [];
-            if (this.ctrlKey) {
-                strBuf.push('ctrl');
-            }
-            if (this.metaKey) {
-                strBuf.push('cmd');
-            }
-            if (this.altKey) {
-                strBuf.push('alt');
-            }
-            if (this.shiftKey) {
-                strBuf.push('shift');
-            }
-            strBuf.push(this.code);
-            return strBuf.join(' ');
+        if (set.has('ctrl')) {
+            // Mac OS
+            hotkeyInfo.ctrlKey = true;
         }
-        equals(that) {
-            return deepEqual(this, that);
+        if (set.has('shift')) {
+            hotkeyInfo.shiftKey = true;
         }
+        if (set.has('alt')) {
+            hotkeyInfo.altKey = true;
+        }
+        return hotkeyInfoToStandardString(hotkeyInfo);
     }
     class HotkeyInfo {
-        constructor(keyInfo, handler) {
-            this.keyInfo = keyInfo;
-            this.handler = handler;
+        constructor(endKey = '', metaKey = false, ctrlKey = false, shiftKey = false, altKey = false) {
+            this.endKey = endKey;
+            this.metaKey = metaKey;
+            this.ctrlKey = ctrlKey;
+            this.shiftKey = shiftKey;
+            this.altKey = altKey;
         }
     }
-    class HotkeysMgr {
-        constructor(hotkeyInfos) {
-            this.keyInfoStrToHandler = new Map();
-            hotkeyInfos === null || hotkeyInfos === void 0 ? void 0 : hotkeyInfos.forEach(info => this.addShortcut(info));
+    function evtToHotkeyInfo(evt) {
+        const info = new HotkeyInfo();
+        const possHotkey = codeToHotkey.get(evt.code);
+        if (!possHotkey) {
+            throw new Error(`(Unknown evt code. Please add this to hotKeyUtil mapping: ${evt.code}`);
         }
-        addShortcut(info) {
-            this.keyInfoStrToHandler.set(info.keyInfo.toString(), info.handler);
+        info.endKey = possHotkey;
+        info.metaKey = evt.metaKey;
+        info.ctrlKey = evt.ctrlKey;
+        info.shiftKey = evt.shiftKey;
+        info.altKey = evt.altKey;
+        return info;
+    }
+    function hotkeyInfoToStandardString(info) {
+        const strs = [];
+        if (info.metaKey) {
+            strs.push('cmd');
         }
-        keyDown(evt) {
-            const evtKeyInfoStr = makeKeyInfoWithoutDefault(evt).toString();
-            const possHandler = this.keyInfoStrToHandler.get(evtKeyInfoStr);
-            if (possHandler) {
-                possHandler(evt);
-            }
+        if (info.ctrlKey) {
+            strs.push('ctrl');
+        }
+        if (info.shiftKey) {
+            strs.push('shift');
+        }
+        if (info.altKey) {
+            strs.push('alt');
+        }
+        strs.push(info.endKey);
+        return strs.join(' ');
+    }
+
+    class Cell {
+        constructor(text = '') {
+            this.text = text;
+        }
+        isEmpty() {
+            return this.text.trim() === '';
         }
     }
 
-    class MelodocUi extends HTMLElement {
-        constructor() {
-            super();
-            this.editor = new MelodocEditor();
-            const pianoKeyboard = new PianoKeyboard();
-            function blah(evt) {
-                console.log('hi');
-                evt.preventDefault();
+    const COLUMN_DELIMITER = ' | ';
+    const ROW_DELIMITER = '\n';
+    class TextTable {
+        constructor(cells = [[new Cell()]], columnDelimiter = COLUMN_DELIMITER) {
+            this.cells = cells;
+            this.columnDelimiter = columnDelimiter;
+        }
+        static fromString(str, columnDelimiter = COLUMN_DELIMITER) {
+            return new TextTable(stringToCells(str), columnDelimiter);
+        }
+        toString() {
+            return this.cells.map(row => row.map(cell => cell.text).join(this.columnDelimiter)).join(ROW_DELIMITER);
+        }
+        getCellsInArray() {
+            return this.cells.flatMap(row => row);
+        }
+        applyLint() {
+            // Remove consecutive spaces
+            this.getCellsInArray().forEach(cell => stripConsecutiveSpaces(cell.text));
+            // Make each column have the same number of spaces
+            const rowDimensions = this.cells.map(row => row.length);
+            const tranposedCells = getTransposedCells(this.cells);
+            const paddedCells = getTransposedCells(tranposedCells.map(colOfCells => genColOfPaddedCells(colOfCells)));
+            this.cells = getSubCells(paddedCells, rowDimensions);
+        }
+        getCellAndInsertIfAbsent(row, col) {
+            if (!this.isWithinBound(row, col)) {
+                this.insertEmptyCellIfAbsent(row, col);
             }
-            const hotkeysMgr = new HotkeysMgr([
-                makeMacHotkey('cmd enter', blah),
-            ]);
-            document.onkeydown = evt => {
-                // Debouncing
-                if (evt.repeat) {
-                    return;
-                }
-                pianoKeyboard.keyDown(evt);
-                hotkeysMgr.keyDown(evt);
-            };
-            document.onkeyup = evt => {
-                // Debouncing
-                if (evt.repeat) {
-                    return;
-                }
-                pianoKeyboard.keyUp(evt);
-            };
-            pianoKeyboard.onNoteDown((noteNum) => {
-                console.log(noteNum);
-                // this.editor.
-            });
+            return this.cells[row][col];
         }
-        connectedCallback() {
-            // this.innerHTML = `MelodocUi`;
+        insertEmptyCellIfAbsent(row, col) {
+            while (row >= this.cells.length) {
+                this.cells.push([]);
+            }
+            while (col >= this.cells[row].length) {
+                this.cells[row].push(new Cell());
+            }
         }
-        loadSerializedData(data) {
-            const song = new Song(dataToSongApi(data));
-            this.editor.loadSong(song);
-            this.innerHTML = JSON.stringify(song, null, 2);
+        isWithinBound(row, col) {
+            if (row < 0 || row >= this.cells.length) {
+                return false;
+            }
+            if (col < 0 || col >= this.cells[row].length) {
+                return false;
+            }
+            return true;
         }
     }
-    function dataToSongApi(data) {
-        try {
-            const songJson = JSON.parse(data);
-            return songJson;
+    ////// Functional functions (i.e. no mutation)
+    function getSubCells(cells, rowDimensions) {
+        return cells.map((row, i) => rowDimensions[i] > 0 ? row.slice(0, rowDimensions[i]) : []);
+    }
+    // Take into account that each row may have a different number of columns
+    // by filling in empty cells with empty strings (which will change the overall dims)
+    function getTransposedCells(cells) {
+        const transposedCells = [];
+        const numOfColsByRow = cells.map(row => row.length);
+        const maxNumOfCols = Math.max(...numOfColsByRow);
+        for (let i = 0; i < maxNumOfCols; i++) {
+            transposedCells.push(getColumnsOfCells(cells, i));
         }
-        catch (err) {
-            console.warn('Failed to parse this data as a song: ', data);
+        return transposedCells;
+    }
+    function stripConsecutiveSpaces(str) {
+        return str.replace(/\s+/g, ' ');
+    }
+    function stringToCells(str, columnDelimiter = COLUMN_DELIMITER) {
+        return str.split(ROW_DELIMITER).map(row => row.split(columnDelimiter).map(text => new Cell(text)));
+    }
+    function getColumnsOfCells(cells, columnIdx) {
+        return cells.map(row => columnIdx < row.length ? row[columnIdx] : new Cell(''));
+    }
+    function genColOfPaddedCells(colsOfCells) {
+        const maxWidth = Math.max(...colsOfCells.map(c => c.text.length));
+        return colsOfCells
+            .map(c => c.text + ' '.repeat(maxWidth - c.text.length))
+            .map(text => new Cell(text));
+    }
+
+    class TsCursor {
+        constructor(rowIdx = 0, colIdx = 0, inTextMode = false, 
+        // Relevant only in text mode
+        textIdx = 0, inTextSelectionMode = false, 
+        // Relevant only in text selection mode
+        textEndIdx = 0) {
+            this.rowIdx = rowIdx;
+            this.colIdx = colIdx;
+            this.inTextMode = inTextMode;
+            this.textIdx = textIdx;
+            this.inTextSelectionMode = inTextSelectionMode;
+            this.textEndIdx = textEndIdx;
         }
-        return {};
+        // Note that the cursor is not aware of being out-of-bound.
+        // It's the responsibility of the editor to ensure that.
+        moveToRightCell() {
+            this.colIdx++;
+            this.inTextMode = false;
+        }
+        moveToLeftCell() {
+            this.colIdx--;
+            if (this.colIdx < 0) {
+                this.colIdx = 0;
+            }
+            this.inTextMode = false;
+        }
+        moveToBelowCell() {
+            this.rowIdx++;
+            this.inTextMode = false;
+        }
+        moveToAboveCell() {
+            this.rowIdx--;
+            if (this.rowIdx < 0) {
+                this.rowIdx = 0;
+            }
+            this.inTextMode = false;
+        }
+    }
+
+    function shouldRerenderAndPreventDefault() {
+        return {
+            rerender: true,
+            applyBrowserDefault: false,
+        };
+    }
+    function shouldApplyBrowserDefaultWithoutRerendering() {
+        return {
+            rerender: false,
+            applyBrowserDefault: true,
+        };
+    }
+    function shouldPreventDefaultWithoutRerendering() {
+        return {
+            rerender: false,
+            applyBrowserDefault: false,
+        };
+    }
+    class TsEditor {
+        constructor(
+        // I/O
+        textarea, 
+        // Model; public to allow for the lowest-level operations
+        textTable = new TextTable(), cursor = new TsCursor(), keydownHandler = undefined, onRenderHandler = undefined) {
+            this.textarea = textarea;
+            this.textTable = textTable;
+            this.cursor = cursor;
+            this.keydownHandler = keydownHandler;
+            this.onRenderHandler = onRenderHandler;
+            this.textarea.onkeydown = evt => this.handleTextareaKeydown(evt);
+            this.textarea.onclick = evt => {
+                // TODO use the selection range to determine which cell the cursor should be on
+            };
+        }
+        onRender(onRenderHandler) {
+            this.onRenderHandler = onRenderHandler;
+        }
+        render() {
+            // console.log('lint + update cursor')
+            this.textTable.applyLint();
+            this.textarea.value = this.textTable.toString();
+            this.updateTextareaSelectionFromCursors();
+            if (this.onRenderHandler) {
+                this.onRenderHandler();
+            }
+        }
+        updateTextareaSelectionFromCursors() {
+            this.textarea.selectionStart = this.inferSelectionStart();
+            this.textarea.selectionEnd = this.inferSelectionEnd();
+        }
+        //// Event processing  ////
+        // Allow client to specify custom keydown handler.
+        onKeydown(handler) {
+            this.keydownHandler = handler;
+        }
+        handleTextareaKeydown(evt) {
+            const handleKeyDown = (evt) => {
+                if (this.keydownHandler) {
+                    return this.keydownHandler(evt);
+                }
+                return this.defaultKeydownHandler(evt);
+            };
+            const handlerOutput = handleKeyDown(evt);
+            if (!handlerOutput.applyBrowserDefault) {
+                evt.preventDefault();
+            }
+            if (handlerOutput.rerender) {
+                this.render();
+            }
+        }
+        handleTextInput(str) {
+            const currCell = this.getCurrCell();
+            if (!this.cursor.inTextMode) {
+                currCell.text = str;
+                this.cursor.inTextMode = true;
+                this.cursor.textIdx = str.length;
+                return;
+            }
+            if (!this.cursor.inTextSelectionMode) {
+                // TODO splice based on textIdx
+                const oldText = currCell.text;
+                currCell.text = oldText.slice(0, this.cursor.textIdx) + str + oldText.slice(this.cursor.textIdx);
+                this.cursor.textIdx += str.length;
+                return;
+            }
+            // TODO: handle textSelectionMode
+        }
+        defaultKeydownHandler(evt) {
+            if (evtIsLikelyInput(evt)) {
+                this.handleTextInput(evt.key);
+                return shouldRerenderAndPreventDefault();
+            }
+            if (evtIsHotkey(evt, 'tab')) {
+                this.moveToRightCell();
+                return shouldRerenderAndPreventDefault();
+            }
+            if (evtIsHotkey(evt, 'shift tab')) {
+                this.moveLeftOrUpAndRight();
+                return shouldRerenderAndPreventDefault();
+            }
+            if (evtIsHotkey(evt, 'enter')) {
+                if (!this.cursor.inTextMode) {
+                    this.enterTextMode();
+                    return shouldRerenderAndPreventDefault();
+                }
+                this.moveDownToLeftmostColumn();
+                return shouldRerenderAndPreventDefault();
+            }
+            if (evtIsHotkey(evt, 'left')) {
+                this.moveLeft();
+                return shouldRerenderAndPreventDefault();
+            }
+            if (evtIsHotkey(evt, 'right')) {
+                this.moveRight();
+                return shouldRerenderAndPreventDefault();
+            }
+            if (evtIsHotkey(evt, 'up')) {
+                this.moveUp();
+                return shouldRerenderAndPreventDefault();
+            }
+            if (evtIsHotkey(evt, 'down')) {
+                this.moveDown();
+                return shouldRerenderAndPreventDefault();
+            }
+            if (evtIsHotkey(evt, 'backspace')) {
+                const hasChanged = this.removeTextOrMoveBack();
+                if (!hasChanged) {
+                    this.moveLeftOrUpAndRight();
+                }
+                return shouldRerenderAndPreventDefault();
+            }
+            if (evtIsHotkey(evt, 'cmd backspace')) {
+                const hasChanged = this.removeTextOrMoveBack(true);
+                if (!hasChanged) {
+                    this.moveLeftOrUpAndRight();
+                }
+                return shouldRerenderAndPreventDefault();
+            }
+            return shouldApplyBrowserDefaultWithoutRerendering();
+        }
+        //removeEntireWord: removes until a space is encountered.
+        // Returns whether or not there is anything removed.
+        removeTextOrMoveBack(removeEntireWord = false) {
+            const currCell = this.getCurrCell();
+            if (this.cursor.inTextMode) {
+                if (this.cursor.textIdx === 0) {
+                    return false;
+                }
+                if (!removeEntireWord) {
+                    currCell.text = currCell.text.slice(0, this.cursor.textIdx - 1) + currCell.text.slice(this.cursor.textIdx);
+                    this.cursor.textIdx -= 1;
+                    return true;
+                }
+                const tokens = currCell.text.slice(0, this.cursor.textIdx).trimEnd().split(/(\s+)/);
+                const resultingSubstr = tokens.slice(0, tokens.length - 1).join('');
+                currCell.text = resultingSubstr + currCell.text.slice(this.cursor.textIdx);
+                this.cursor.textIdx = resultingSubstr.length;
+                return true;
+            }
+            if (!currCell.isEmpty()) {
+                currCell.text = '';
+                return true;
+            }
+            return false;
+        }
+        moveLeftOrUpAndRight(removeCurrCellIfNoCellToRight = false) {
+            // TODO remove the current cell there is if no more cell to the right.
+            // TODO If at left boundary, move up to right most cell
+            this.moveToLeftCell();
+        }
+        getCurrCell() {
+            return this.textTable.getCellAndInsertIfAbsent(this.cursor.rowIdx, this.cursor.colIdx);
+        }
+        moveRight() {
+            if (this.cursor.inTextMode && this.cursor.textIdx < this.getCurrCell().text.trimEnd().length) {
+                this.cursor.textIdx += 1;
+                return;
+            }
+            this.moveToRightCell();
+        }
+        moveToRightCell() {
+            this.cursor.moveToRightCell();
+            this.textTable.insertEmptyCellIfAbsent(this.cursor.rowIdx, this.cursor.colIdx);
+        }
+        moveLeft() {
+            if (this.cursor.inTextMode && this.cursor.textIdx > 0) {
+                this.cursor.textIdx -= 1;
+                return;
+            }
+            this.moveToLeftCell();
+        }
+        moveToLeftCell() {
+            this.cursor.moveToLeftCell();
+            this.textTable.insertEmptyCellIfAbsent(this.cursor.rowIdx, this.cursor.colIdx);
+        }
+        moveUp() {
+            this.cursor.moveToAboveCell();
+            this.textTable.insertEmptyCellIfAbsent(this.cursor.rowIdx, this.cursor.colIdx);
+        }
+        moveDown() {
+            this.cursor.moveToBelowCell();
+            this.textTable.insertEmptyCellIfAbsent(this.cursor.rowIdx, this.cursor.colIdx);
+        }
+        moveDownToLeftmostColumn() {
+            this.cursor.moveToBelowCell();
+            this.cursor.colIdx = 0;
+            this.textTable.insertEmptyCellIfAbsent(this.cursor.rowIdx, this.cursor.colIdx);
+        }
+        enterTextMode() {
+            this.cursor.inTextMode = true;
+            const currCell = this.textTable.getCellAndInsertIfAbsent(this.cursor.rowIdx, this.cursor.colIdx);
+            this.cursor.textIdx = currCell.text.trimEnd().length;
+        }
+        // Helpers
+        inferSelectionStart() {
+            let idx = 0;
+            const text = this.textarea.value;
+            text.split(ROW_DELIMITER).forEach((line, i) => {
+                if (i > this.cursor.rowIdx) {
+                    return;
+                }
+                if (i === this.cursor.rowIdx) {
+                    line.split(COLUMN_DELIMITER).forEach((cellText, j) => {
+                        if (j > this.cursor.colIdx) {
+                            return;
+                        }
+                        if (j === this.cursor.colIdx) {
+                            if (this.cursor.inTextMode) {
+                                idx += this.cursor.textIdx;
+                            }
+                            return;
+                        }
+                        idx += cellText.length + COLUMN_DELIMITER.length;
+                    });
+                    return;
+                }
+                idx += line.length + ROW_DELIMITER.length;
+            });
+            return idx;
+        }
+        inferSelectionEnd() {
+            let idx = this.inferSelectionStart();
+            if (this.cursor.inTextMode) {
+                if (this.cursor.inTextSelectionMode) {
+                    return idx + this.cursor.textEndIdx;
+                }
+                return idx;
+            }
+            const currCell = this.textTable.cells[this.cursor.rowIdx][this.cursor.colIdx];
+            // add one so that for zero length text, user can still see the cell selected.
+            const textLength = currCell.text.trimEnd().length;
+            if (textLength === 0) {
+                return idx + 1;
+            }
+            return idx + textLength;
+        }
+    }
+
+    class TsUi extends HTMLElement {
+        constructor(tsEditor) {
+            super();
+            this.tsEditor = tsEditor;
+        }
+        connectedCallback() {
+            const shadowRoot = this.attachShadow({ mode: 'open' });
+            const textarea = document.createElement('textarea');
+            textarea.id = 'editing-textarea';
+            textarea.style.width = '100%';
+            textarea.style.fontSize = '24px';
+            textarea.rows = 10;
+            textarea.spellcheck = false;
+            textarea.autofocus = true;
+            shadowRoot.appendChild(textarea);
+            this.tsEditor = new TsEditor(textarea);
+        }
+    }
+    customElements.define('textarea-spreadsheet-ui', TsUi);
+
+    function genLink(textTable) {
+        const json = textTableToArrOfArrs(textTable);
+        const jsonStr = JSON.stringify(json);
+        return jsonStringToLink(jsonStr);
+    }
+    function textTableToArrOfArrs(textTable) {
+        const res = [
+            ['', 'Key: C'],
+            ['', 'Meter: 4/4'],
+            ['', 'Tempo: 180'],
+            ['', 'Part: A'],
+            ['', '_'],
+            ['', 'Voice: A'],
+        ];
+        const arrOfArrs = textTable.cells.map(row => row.map(cell => {
+            const text = cell.text.trim();
+            return text.replace(/;/g, '|');
+        }));
+        return res.concat(arrOfArrs);
+    }
+    function jsonStringToLink(jsonStr) {
+        const baseLink = 'https://slowbubble.github.io/MidiChordSheet/';
+        const title = 'untitled';
+        return `${baseLink}#displayNotes=1&title=${title}&data=${encodeURIComponent(jsonStr)}`;
+    }
+
+    // The text index will be on the right of any spaces
+    function getTextIdxOnTheLeft(text, currTextIdx) {
+        const tokenInfos = getTokenInfos(text);
+        const idx = getTokenInfosContainingCurrTextIdx(tokenInfos, currTextIdx);
+        if (idx <= 0) {
+            return 0;
+        }
+        return tokenInfos[idx].startIdx;
+    }
+    // The text index will be on the right of any spaces
+    function getTextIdxOnTheRight(text, currTextIdx) {
+        const tokenInfos = getTokenInfos(text);
+        const idx = getTokenInfosContainingCurrTextIdx(tokenInfos, currTextIdx);
+        if (tokenInfos.length === 0) {
+            return 0;
+        }
+        return tokenInfos[idx + 1].endIdx;
+    }
+    function getTokenInfos(text) {
+        let idx = 0;
+        // Split so that 'A B C ' becomes ['A ', 'B ', 'C ']
+        return text.split(/(?!\s+)/).map(token => {
+            const oldIdx = idx;
+            idx += token.length;
+            return {
+                string: token,
+                startIdx: oldIdx,
+                endIdx: idx,
+            };
+        });
+    }
+    // (---](--](--x--] --> tokenInfosIdxContainingCurrTextIdx is 2
+    function getTokenInfosContainingCurrTextIdx(tokenInfos, currTextIdx) {
+        for (let tokenInfoIdx = 0; tokenInfoIdx < tokenInfos.length; tokenInfoIdx++) {
+            const tokenStartingIdx = tokenInfos[tokenInfoIdx].startIdx;
+            if (currTextIdx <= tokenStartingIdx) {
+                return tokenInfoIdx - 1;
+            }
+        }
+        return tokenInfos.length - 1;
+    }
+
+    const keyToNoteNum = new Map([
+        ["'", 41],
+        ['/', 42],
+        [';', 43],
+        ['.', 44],
+        ['l', 45],
+        [',', 46],
+        ['k', 47],
+        ['j', 48],
+        ['n', 49],
+        ['h', 50],
+        ['b', 51],
+        ['g', 52],
+        ['f', 53],
+        ['c', 54],
+        ['d', 55],
+        ['s', 57],
+        ['z', 58],
+        ['a', 59],
+        ['1', 60],
+        ['q', 61],
+        ['2', 62],
+        ['w', 63],
+        ['3', 64],
+        ['4', 65],
+        ['r', 66],
+        ['5', 67],
+        ['t', 68],
+        ['6', 69],
+        ['y', 70],
+        ['7', 71],
+        ['8', 72],
+        ['i', 73],
+        ['9', 74],
+        ['o', 75],
+        ['0', 76],
+        ['-', 77],
+        ['[', 78],
+        ['=', 79],
+        [']', 80],
+    ]);
+    function mapKeyToNoteNum(key) {
+        return keyToNoteNum.get(key);
+    }
+
+    const modNoteNumToAbc = new Map([
+        [0, 'C'],
+        [1, 'C#'],
+        [2, 'D'],
+        [3, 'Eb'],
+        [4, 'E'],
+        [5, 'F'],
+        [6, 'F#'],
+        [7, 'G'],
+        [8, 'G#'],
+        [9, 'A'],
+        [10, 'Bb'],
+        [11, 'B'],
+    ]);
+    function noteNumToAbc(noteNum) {
+        const possibleStr = modNoteNumToAbc.get(mod(noteNum, 12));
+        if (!possibleStr) {
+            throw new Error('Invalid noteNum: ' + noteNum);
+        }
+        const numOctaveAboveMiddleC = Math.floor((noteNum - 60) / 12);
+        if (numOctaveAboveMiddleC < 0) {
+            return '/'.repeat(-numOctaveAboveMiddleC) + possibleStr;
+        }
+        return '\\'.repeat(numOctaveAboveMiddleC) + possibleStr;
+    }
+    function mod(a, b) {
+        return (a % b + b) % b;
+    }
+
+    class MsEditor {
+        constructor(tsEditor, magicMode = true, numFullBarsPerRow = 4, customHotkeyToAction = new Map()) {
+            this.tsEditor = tsEditor;
+            this.magicMode = magicMode;
+            this.numFullBarsPerRow = numFullBarsPerRow;
+            this.customHotkeyToAction = customHotkeyToAction;
+            this.buffer = [];
+            this.tsEditor.onKeydown(evt => {
+                if (this.magicMode) {
+                    return this.handleKeyDown(evt);
+                }
+                return this.tsEditor.defaultKeydownHandler(evt);
+            });
+        }
+        handleKeyDown(evt) {
+            // google add-on shortcuts;
+            const action = this.customHotkeyToAction.get(evtToStandardString(evt));
+            if (action) {
+                action();
+                return shouldPreventDefaultWithoutRerendering();
+            }
+            // Need to disable custom behavior to avoid infinite loop.
+            this.buffer.push(evt);
+            window.setTimeout(() => {
+                // Special keys should come before other keys
+                this.buffer.sort((evt1, evt2) => {
+                    const isSpecialKey = evtIsHotkey(evt1, 'tab') || evtIsHotkey(evt1, '`');
+                    const isSpecialKey2 = evtIsHotkey(evt2, 'tab') || evtIsHotkey(evt2, '`');
+                    if (!isSpecialKey && isSpecialKey2) {
+                        return 1;
+                    }
+                    return -1;
+                });
+                let rerender = false;
+                this.buffer.forEach(evt => {
+                    const shouldRerender = this.handleKeyDownAfterOrdering(evt);
+                    rerender || (rerender = shouldRerender);
+                });
+                this.buffer = [];
+                if (rerender) {
+                    this.tsEditor.render();
+                }
+            }, 100);
+            // Browser default needs to be explicitly enabled.
+            if (evtIsHotkey(evt, 'cmd r'))
+                return shouldApplyBrowserDefaultWithoutRerendering();
+            if (evtIsHotkey(evt, 'cmd c'))
+                return shouldApplyBrowserDefaultWithoutRerendering();
+            if (evtIsHotkey(evt, 'cmd x'))
+                return shouldApplyBrowserDefaultWithoutRerendering();
+            // No-op because we will handle it in handleKeyDownAfterOrdering.
+            return shouldPreventDefaultWithoutRerendering();
+        }
+        // Returns whether or not to re-render.
+        handleKeyDownAfterOrdering(evt) {
+            if (evtIsHotkey(evt, '`')) {
+                const numDividersInCell = (this.tsEditor.getCurrCell().text.match(/;/g) || []).length;
+                // TODO Use meterDenom - 1 instead of 3.
+                const hasEnoughDividers = numDividersInCell === 3;
+                if (hasEnoughDividers) {
+                    this.handleTab();
+                    return true;
+                }
+                this.addDivider();
+                return true;
+            }
+            if (evtIsHotkey(evt, 'space')) {
+                this.addProtraction();
+                return true;
+            }
+            if (evtIsLikelyInput(evt)) {
+                const possNoteNum = mapKeyToNoteNum(evt.key);
+                if (possNoteNum) {
+                    const abc = noteNumToAbc(possNoteNum);
+                    this.handleTextInputWithPadding(abc);
+                    return true;
+                }
+            }
+            if (evtIsHotkey(evt, 'tab')) {
+                this.handleTab();
+                return true;
+            }
+            if (evtIsHotkey(evt, 'backspace')) {
+                const hasChanged = this.tsEditor.removeTextOrMoveBack(true);
+                if (!hasChanged) {
+                    this.moveLeftOrUpRightWhereTextExists(true);
+                }
+                return true;
+            }
+            if (evtIsHotkey(evt, 'left')) {
+                this.handleLeft();
+                return true;
+            }
+            if (evtIsHotkey(evt, 'right')) {
+                this.handleRight();
+                return true;
+            }
+            return false;
+        }
+        // Move left if there is text in any cells in the left.
+        // Otherwise, move up one row to the right-most cell with content
+        moveLeftOrUpRightWhereTextExists(removeCurrCellIfNonEssential = false) {
+            const oldRowIdx = this.tsEditor.cursor.rowIdx;
+            const oldColIdx = this.tsEditor.cursor.colIdx;
+            const currRow = this.tsEditor.textTable.cells[oldRowIdx];
+            const textExistsInTheLeft = currRow.slice(0, oldColIdx).some(cell => !cell.isEmpty());
+            if (oldColIdx > 1 || textExistsInTheLeft) {
+                this.tsEditor.moveToLeftCell();
+                if (removeCurrCellIfNonEssential) {
+                    // Remove the cells to the right of the cursor.
+                    const hasThingsToTheRight = currRow.slice(oldColIdx).some(cell => !cell.isEmpty());
+                    if (!hasThingsToTheRight) {
+                        this.tsEditor.textTable.cells[oldRowIdx] = currRow.slice(0, oldColIdx);
+                    }
+                }
+                return;
+            }
+            if (this.tsEditor.cursor.rowIdx === 0) {
+                return;
+            }
+            this.tsEditor.cursor.rowIdx -= 1;
+            if (removeCurrCellIfNonEssential) {
+                // Remove the entire row if nothing is below it.
+                const rowsBelow = this.tsEditor.textTable.cells.slice(oldRowIdx);
+                const hasStuffBelow = rowsBelow.some(row => row.some(cell => !cell.isEmpty()));
+                console.log(rowsBelow);
+                console.log(hasStuffBelow);
+                if (!hasStuffBelow) {
+                    this.tsEditor.textTable.cells = this.tsEditor.textTable.cells.slice(0, oldRowIdx);
+                }
+            }
+            this.tsEditor.cursor.colIdx = this.numFullBarsPerRow;
+            // const newRow = this.tsEditor.textTable.cells[this.tsEditor.cursor.rowIdx];
+            // for (let idx = newRow.length - 1; idx >= 0; idx--) {
+            //   if (!newRow[idx].isEmpty()) {
+            //     this.tsEditor.cursor.colIdx = idx;
+            //     return;
+            //   }
+            // }
+            // this.tsEditor.cursor.colIdx = 0;
+        }
+        handleLeft() {
+            if (this.tsEditor.cursor.inTextMode && this.tsEditor.cursor.textIdx > 0) {
+                this.tsEditor.cursor.textIdx = getTextIdxOnTheLeft(this.tsEditor.getCurrCell().text, this.tsEditor.cursor.textIdx);
+                return;
+            }
+            this.tsEditor.moveToLeftCell();
+        }
+        handleRight() {
+            const text = this.tsEditor.getCurrCell().text;
+            if (this.tsEditor.cursor.inTextMode && this.tsEditor.cursor.textIdx < text.length) {
+                this.tsEditor.cursor.textIdx = getTextIdxOnTheRight(text, this.tsEditor.cursor.textIdx);
+                return;
+            }
+            if (this.tsEditor.cursor.colIdx === this.numFullBarsPerRow) {
+                return;
+            }
+            this.tsEditor.moveToRightCell();
+        }
+        handleTab() {
+            if (this.tsEditor.cursor.colIdx < this.numFullBarsPerRow) {
+                this.tsEditor.moveToRightCell();
+                return;
+            }
+            this.tsEditor.moveDownToLeftmostColumn();
+            // Move right before the left-most cell is the pick-up bar.
+            this.tsEditor.moveToRightCell();
+        }
+        addDivider() {
+            this.handleTextInputWithPadding(';');
+        }
+        addProtraction() {
+            this.handleTextInputWithPadding('_');
+        }
+        handleTextInputWithPadding(text) {
+            const cursor = this.tsEditor.cursor;
+            let paddedText = ` ${text} `;
+            if (!cursor.inTextMode || cursor.textIdx === 0) {
+                paddedText = `${text} `;
+            }
+            else if (this.tsEditor.getCurrCell().text.slice(cursor.textIdx - 1, cursor.textIdx) === ' ') {
+                paddedText = `${text} `;
+            }
+            this.tsEditor.handleTextInput(paddedText);
+        }
+    }
+
+    class MsUi extends HTMLElement {
+        constructor(msEditor) {
+            super();
+            this.msEditor = msEditor;
+        }
+        connectedCallback() {
+            const shadowRoot = this.attachShadow({ mode: 'open' });
+            const tsUi = document.createElement('textarea-spreadsheet-ui');
+            shadowRoot.appendChild(tsUi);
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            shadowRoot.appendChild(div);
+            const iframe = shadowRoot.getElementById('sheet-music-iframe');
+            this.msEditor = new MsEditor(tsUi.tsEditor);
+            tsUi.tsEditor.onRender(() => {
+                iframe.src = genLink(tsUi.tsEditor.textTable);
+            });
+        }
+    }
+    const html = `
+<iframe id="sheet-music-iframe"
+    title="Sheet Music"
+    width="100%"
+    height="450">
+</iframe>
+`;
+    customElements.define('music-spreadsheet-ui', MsUi);
+
+    function setupGoogleAddOnActions(msEditor) {
+        // TODO add a shortcut for resizing modal.
+        document.getElementById('add-image-button')?.addEventListener('keydown', () => addImageToDoc());
+        msEditor.customHotkeyToAction.set('shift i', () => addImageToDoc());
+    }
+    function onSuccess() {
+        google.script.host.close();
+    }
+    function addImageToDoc() {
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            return;
+        }
+        ctx.beginPath();
+        ctx.arc(100, 75, 50, 0, 2 * Math.PI);
+        ctx.stroke();
+        canvas.toBlob(async (blob) => {
+            if (!blob) {
+                return;
+            }
+            const blobInArray = Array.from(new Uint8Array(await blob.arrayBuffer()));
+            google.script.run
+                .withSuccessHandler(onSuccess)
+                // .withFailureHandler(onFailure)
+                .addImageWithLink(blobInArray);
+        });
+    }
+
+    function isInGoogleAddOn() {
+        return typeof google !== 'undefined';
     }
 
     function main(data) {
-        customElements.define("melodoc-ui", MelodocUi);
         const mainDiv = document.getElementById('main');
         mainDiv.innerHTML = '';
-        const melodocUi = document.createElement('melodoc-ui');
-        mainDiv.appendChild(melodocUi);
-        melodocUi.loadSerializedData(data);
+        const msUiElt = document.createElement('music-spreadsheet-ui');
+        mainDiv.appendChild(msUiElt);
+        if (isInGoogleAddOn()) {
+            setupGoogleAddOnActions(msUiElt.msEditor);
+        }
     }
 
     function toInternalUrl(externalUrlStr) {
@@ -590,8 +1079,8 @@
     }
 
     const urlParams = getUrlParamsMap();
-    const data = urlParams.has('data') ? urlParams.get('data') : '{}';
-    main(data);
+    urlParams.has('data') ? urlParams.get('data') : '{}';
+    main();
 
 })();
 //# sourceMappingURL=webMain.js.map

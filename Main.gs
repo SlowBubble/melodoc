@@ -6,8 +6,8 @@ function onOpen(e) {
 
 function showEditor() {
   var html = HtmlService.createTemplateFromFile('Editor').evaluate()
-    .setWidth(800)
-    .setHeight(800);
+    .setWidth(1200)
+    .setHeight(1200);
   DocumentApp.getUi() // Or DocumentApp or SlidesApp or FormApp.
     .showModalDialog(html, 'Melodoc Editor');
 }
@@ -15,4 +15,16 @@ function showEditor() {
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename)
       .getContent();
+}
+
+function addImageWithLink(blobInArray) {
+  const body = DocumentApp.getActiveDocument().getBody();
+  return body.appendImage(Utilities.newBlob(blobInArray));
+  // setLinkUrl(url)
+  // const cursor = DocumentApp.getActiveDocument().getCursor();
+  // cursor.insertText('hello');
+  // console.log(blobInArray[0]);
+  // console.log(Utilities.newBlob(blobInByteArray));
+  // cursor.insertInlineImage(Utilities.newBlob(blobInArray));
+
 }

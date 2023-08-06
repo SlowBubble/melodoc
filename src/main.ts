@@ -1,13 +1,20 @@
-import { MelodocUi } from "./MelodocUi";
-
+import "./tsModules/textarea-spreadsheet/tsUi"
+import "./tsModules/music-spreadsheet/msUi"
+import { setupGoogleAddOnActions } from "./googleAddOnActions";
+import { isInGoogleAddOn } from "./tsModules/google-add-on/googleAddOn";
+import { MsUi } from "./tsModules/music-spreadsheet/msUi";
 
 export function main(data: string) {
-  customElements.define("melodoc-ui", MelodocUi);
-
   const mainDiv = document.getElementById('main') as HTMLDivElement;
   mainDiv.innerHTML = '';
-  const melodocUi = document.createElement('melodoc-ui') as MelodocUi;
-  mainDiv.appendChild(melodocUi);
-  melodocUi.loadSerializedData(data);
+
+  const msUiElt = document.createElement('music-spreadsheet-ui') as MsUi;
+  mainDiv.appendChild(msUiElt);
+
+  if (isInGoogleAddOn()) {
+    setupGoogleAddOnActions(msUiElt.msEditor);
+  }
+
 }
+
 
