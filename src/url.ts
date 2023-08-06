@@ -20,10 +20,18 @@ export function toExternalUrlStr(internalUrl: URL) {
 }
 
 export function getUrlParamsMap() {
-  const url = toInternalUrl(document.URL);
+  return getUrlParamsMapFromString(document.URL);
+}
+
+export function getUrlParamsMapFromString(urlStr: string) {
   const keyVals = new Map();
+  if (!urlStr) {
+    return keyVals;
+  }
+  const url = toInternalUrl(urlStr);
   url.searchParams.forEach(function(value, key) {
     keyVals.set(key, value);
   });
   return keyVals;
+
 }

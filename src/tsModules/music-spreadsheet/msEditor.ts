@@ -1,7 +1,7 @@
-import { addImageToDoc } from "../../googleAddOnActions";
 import { evtIsHotkey, evtIsLikelyInput, evtToStandardString } from "../hotkey-util/hotkeyUtil";
 import { getTextIdxOnTheLeft, getTextIdxOnTheRight } from "../textarea-spreadsheet/textUtil";
 import { KeydownHandlerOutput, TsEditor, shouldApplyBrowserDefaultWithoutRerendering, shouldPreventDefaultWithoutRerendering, shouldRerenderAndPreventDefault } from "../textarea-spreadsheet/tsEditor";
+import { genLink } from "./genLink";
 import { mapKeyToNoteNum } from "./keyToNoteNumMapping";
 import { noteNumToAbc } from "./noteNumToAbcMapping";
 
@@ -19,6 +19,10 @@ export class MsEditor {
       }
       return this.tsEditor.defaultKeydownHandler(evt);
     });
+  }
+
+  getLink() {
+    return genLink(this.tsEditor.textTable);
   }
 
   handleKeyDown(evt: KeyboardEvent): KeydownHandlerOutput {

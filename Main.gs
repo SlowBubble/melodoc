@@ -1,6 +1,6 @@
 function onOpen(e) {
   DocumentApp.getUi().createAddonMenu()
-      .addItem('Create', 'showEditor')
+      .addItem('Create/Edit', 'showEditor')
       .addToUi();
 }
 
@@ -17,14 +17,27 @@ function include(filename) {
       .getContent();
 }
 
-function addImageWithLink(blobInArray) {
+function addImageWithLink(blobInArray, url) {
   const body = DocumentApp.getActiveDocument().getBody();
-  return body.appendImage(Utilities.newBlob(blobInArray));
-  // setLinkUrl(url)
-  // const cursor = DocumentApp.getActiveDocument().getCursor();
-  // cursor.insertText('hello');
-  // console.log(blobInArray[0]);
-  // console.log(Utilities.newBlob(blobInByteArray));
-  // cursor.insertInlineImage(Utilities.newBlob(blobInArray));
+  const inlineImage = body.appendImage(Utilities.newBlob(blobInArray));
+  inlineImage.setLinkUrl(url)
+}
 
+function getLinkPointedToByCursor() {
+  const noLink = '';
+  const range = DocumentApp.getActiveDocument().getSelection();
+  if  (!range) {
+    return noLink;
+  }
+  const rangeElts = range.getRangeElements();
+  for (let i = 0; i < rangeElts.length; i++) {
+    var elt = rangeElts[i].getElement();
+    try {
+      return elt.asInlineImage().getLinkUrl();
+    } catch (e) {
+      // The selected element is not an image.
+      console.log(e);
+    }
+  }
+  return noLink;
 }

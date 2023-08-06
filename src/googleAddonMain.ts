@@ -1,3 +1,5 @@
 import { main } from "./main";
 
-main('google');
+declare const linkPointedToByCursor: string;
+
+main(linkPointedToByCursor);

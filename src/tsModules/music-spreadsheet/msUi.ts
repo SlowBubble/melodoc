@@ -16,7 +16,7 @@ export class MsUi extends HTMLElement {
     const iframe = <HTMLIFrameElement>shadowRoot.getElementById('sheet-music-iframe');
     this.msEditor = new MsEditor(tsUi.tsEditor);
     tsUi.tsEditor.onRender(() => {
-      iframe.src = genLink(tsUi.tsEditor.textTable);
+      iframe.src = this.msEditor.getLink();
     });
   }
 }

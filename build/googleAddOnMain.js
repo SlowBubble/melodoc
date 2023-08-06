@@ -12,8 +12,13 @@
         ["ArrowUp", "up"],
         ["Enter", "enter"],
         ["MetaLeft", "cmd"],
+        ["MetaRight", "cmd"],
         ["ControlLeft", "ctrl"],
+        ["ControlRight", "ctrl"],
+        ["AltLeft", "alt"],
+        ["AltRight", "alt"],
         ["ShiftLeft", "shift"],
+        ["ShiftRight", "shift"],
         ["Home", "home"],
         ["End", "end"],
         ["PageUp", "pageup"],
@@ -666,32 +671,6 @@
     }
     customElements.define('textarea-spreadsheet-ui', TsUi);
 
-    function genLink(textTable) {
-        const json = textTableToArrOfArrs(textTable);
-        const jsonStr = JSON.stringify(json);
-        return jsonStringToLink(jsonStr);
-    }
-    function textTableToArrOfArrs(textTable) {
-        const res = [
-            ['', 'Key: C'],
-            ['', 'Meter: 4/4'],
-            ['', 'Tempo: 180'],
-            ['', 'Part: A'],
-            ['', '_'],
-            ['', 'Voice: A'],
-        ];
-        const arrOfArrs = textTable.cells.map(row => row.map(cell => {
-            const text = cell.text.trim();
-            return text.replace(/;/g, '|');
-        }));
-        return res.concat(arrOfArrs);
-    }
-    function jsonStringToLink(jsonStr) {
-        const baseLink = 'https://slowbubble.github.io/MidiChordSheet/';
-        const title = 'untitled';
-        return `${baseLink}#displayNotes=1&title=${title}&data=${encodeURIComponent(jsonStr)}`;
-    }
-
     // The text index will be on the right of any spaces
     function getTextIdxOnTheLeft(text, currTextIdx) {
         const tokenInfos = getTokenInfos(text);
@@ -732,6 +711,32 @@
             }
         }
         return tokenInfos.length - 1;
+    }
+
+    function genLink(textTable) {
+        const json = textTableToArrOfArrs(textTable);
+        const jsonStr = JSON.stringify(json);
+        return jsonStringToLink(jsonStr);
+    }
+    function textTableToArrOfArrs(textTable) {
+        const res = [
+            ['', 'Key: C'],
+            ['', 'Meter: 4/4'],
+            ['', 'Tempo: 180'],
+            ['', 'Part: A'],
+            ['', '_'],
+            ['', 'Voice: A'],
+        ];
+        const arrOfArrs = textTable.cells.map(row => row.map(cell => {
+            const text = cell.text.trim();
+            return text.replace(/;/g, '|');
+        }));
+        return res.concat(arrOfArrs);
+    }
+    function jsonStringToLink(jsonStr) {
+        const baseLink = 'https://slowbubble.github.io/MidiChordSheet/';
+        const title = 'untitled';
+        return `${baseLink}#displayNotes=1&title=${title}&data=${encodeURIComponent(jsonStr)}`;
     }
 
     const keyToNoteNum = new Map([
@@ -821,6 +826,9 @@
                 }
                 return this.tsEditor.defaultKeydownHandler(evt);
             });
+        }
+        getLink() {
+            return genLink(this.tsEditor.textTable);
         }
         handleKeyDown(evt) {
             // google add-on shortcuts;
@@ -1010,7 +1018,7 @@
             const iframe = shadowRoot.getElementById('sheet-music-iframe');
             this.msEditor = new MsEditor(tsUi.tsEditor);
             tsUi.tsEditor.onRender(() => {
-                iframe.src = genLink(tsUi.tsEditor.textTable);
+                iframe.src = this.msEditor.getLink();
             });
         }
     }
@@ -1025,30 +1033,41 @@
 
     function setupGoogleAddOnActions(msEditor) {
         // TODO add a shortcut for resizing modal.
-        document.getElementById('add-image-button')?.addEventListener('keydown', () => addImageToDoc());
-        msEditor.customHotkeyToAction.set('shift i', () => addImageToDoc());
+        document.getElementById('add-image-button')?.addEventListener('keydown', () => addImageWithLinkToDoc(msEditor.getLink()));
+        msEditor.customHotkeyToAction.set('shift i', () => addImageWithLinkToDoc(msEditor.getLink()));
     }
     function onSuccess() {
         google.script.host.close();
     }
-    function addImageToDoc() {
+    function onFailure(error) {
+        alert(error.message);
+    }
+    function addImageWithLinkToDoc(link) {
+        const dialog = document.getElementById('inserting-dialog');
+        dialog.showModal();
         const canvas = document.getElementById('myCanvas');
         const ctx = canvas.getContext("2d");
         if (!ctx) {
+            dialog.close();
             return;
         }
         ctx.beginPath();
-        ctx.arc(100, 75, 50, 0, 2 * Math.PI);
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, 100);
+        ctx.lineTo(200, 100);
+        ctx.lineTo(200, 0);
+        ctx.lineTo(0, 0);
         ctx.stroke();
         canvas.toBlob(async (blob) => {
             if (!blob) {
+                dialog.close();
                 return;
             }
             const blobInArray = Array.from(new Uint8Array(await blob.arrayBuffer()));
             google.script.run
                 .withSuccessHandler(onSuccess)
-                // .withFailureHandler(onFailure)
-                .addImageWithLink(blobInArray);
+                .withFailureHandler(onFailure)
+                .addImageWithLink(blobInArray, link);
         });
     }
 
@@ -1056,17 +1075,35 @@
         return typeof google !== 'undefined';
     }
 
-    function main(data) {
+    function toInternalUrl(externalUrlStr) {
+        return new URL(externalUrlStr.replace('#', '?'));
+    }
+    function getUrlParamsMapFromString(urlStr) {
+        const keyVals = new Map();
+        if (!urlStr) {
+            return keyVals;
+        }
+        const url = toInternalUrl(urlStr);
+        url.searchParams.forEach(function (value, key) {
+            keyVals.set(key, value);
+        });
+        return keyVals;
+    }
+
+    function main(url) {
         const mainDiv = document.getElementById('main');
         mainDiv.innerHTML = '';
         const msUiElt = document.createElement('music-spreadsheet-ui');
         mainDiv.appendChild(msUiElt);
+        const urlParams = getUrlParamsMapFromString(url);
+        urlParams.has('data') ? urlParams.get('data') : '[]';
+        // msUiElt.msEditor.tsEditor.textTable = TextTable.fromString(dataToTextAreaString(data))
         if (isInGoogleAddOn()) {
             setupGoogleAddOnActions(msUiElt.msEditor);
         }
     }
 
-    main();
+    main(linkPointedToByCursor);
 
 })();
 //# sourceMappingURL=googleAddOnMain.js.map

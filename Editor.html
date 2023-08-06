@@ -9,6 +9,12 @@
       Loading ...
     </div>
     <canvas id="myCanvas" width="200" height="100"></canvas>
+    <dialog id='inserting-dialog'>
+      Inserting...
+    </dialog>
+    <script>
+      const linkPointedToByCursor = '<?= getLinkPointedToByCursor() ?>';
+    </script>
     <?!= include('build/googleAddOnMain.js.html'); ?>
   </body>
 </html>
