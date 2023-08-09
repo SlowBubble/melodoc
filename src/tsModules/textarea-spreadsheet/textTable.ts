@@ -18,9 +18,12 @@ export class TextTable {
   getCellsInArray() {
     return this.cells.flatMap(row => row);
   }
-  applyLint() {  
-    // Remove consecutive spaces
-    this.getCellsInArray().forEach(cell => stripConsecutiveSpaces(cell.text));
+  // TODO Only trim the ends in non-text mode or there will be some weird behavior when typing spaces.
+  applyLint(trimEnds=false) {  
+    // this.getCellsInArray().forEach(cell => cell.text = stripConsecutiveSpaces(cell.text.trim()));
+    if (trimEnds) {
+      this.getCellsInArray().forEach(cell => cell.text = cell.text.trim());
+    }
 
     // Make each column have the same number of spaces
     const rowDimensions = this.cells.map(row => row.length);

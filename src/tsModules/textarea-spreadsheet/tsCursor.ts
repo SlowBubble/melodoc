@@ -36,6 +36,19 @@ export class TsCursor {
     }
     this.inTextMode = false;
   }
+  serialize() {
+    return JSON.stringify(this);
+  }
+  static deserialize(str: string): TsCursor {
+    const json = JSON.parse(str);
+    return new TsCursor(
+      json.rowIdx,
+      json.colIdx,
+      json.inTextMode,
+      json.textIdx,
+      json.inTextSelectionMode, 
+      json.textEndIdx);
+  }
 }
   
 

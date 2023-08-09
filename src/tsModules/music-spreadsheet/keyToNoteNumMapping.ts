@@ -14,6 +14,7 @@ const keyToNoteNum: Map<string, number> = new Map([
   ['f', 53],
   ['c', 54],
   ['d', 55],
+  ['x', 56],
   ['s', 57],
   ['z', 58],
   ['a', 59],

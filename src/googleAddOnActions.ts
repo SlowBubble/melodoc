@@ -5,9 +5,9 @@ declare const google: any;
 export function setupGoogleAddOnActions(msEditor: MsEditor) {
   // TODO add a shortcut for resizing modal.
   document.getElementById('add-image-button')?.addEventListener(
-    'keydown', () => addImageWithLinkToDoc(msEditor.getMelodocLink()));
+    'keydown', _ => addImageWithLinkToDoc(msEditor.getMelodocLink()));
   msEditor.customHotkeyToAction.set(
-    'shift i', () => addImageWithLinkToDoc(msEditor.getMelodocLink()));
+    'alt i', _ => addImageWithLinkToDoc(msEditor.getMelodocLink()));
   // Autofocus does not work for google add-on, so focus explicitly.
   msEditor.tsEditor.textarea.focus();
 }

@@ -1,4 +1,6 @@
 import { evtIsHotkey, evtIsLikelyInput } from "../hotkey-util/hotkeyUtil";
+import { UndoMgr } from "../undo/undoMgr";
+import { Cell } from "./cell";
 import { COLUMN_DELIMITER, ROW_DELIMITER, TextTable } from "./textTable";
 import { TsCursor } from "./tsCursor";
 
@@ -30,7 +32,19 @@ export function shouldPreventDefaultWithoutRerendering() {
 
 export type KeydownHandler = (evt: KeyboardEvent) => KeydownHandlerOutput;
 
+class State {
+  constructor(
+    public tableStr: string = (new TextTable().toString()),
+    public cursorStr: string = (new TsCursor().serialize()),
+  ) {}
+  static equal(a: State, b: State) {
+    return a.tableStr === b.tableStr;
+  }
+};
+
 export class TsEditor {
+  private undoMgr: UndoMgr<State> = new UndoMgr(new State(), State.equal);
+
   constructor(
       // I/O
       public textarea: HTMLTextAreaElement,
@@ -51,16 +65,40 @@ export class TsEditor {
   }
 
   render() {
-    // console.log('lint + update cursor')
-    this.textTable.applyLint();
+    const shouldTrimEnds = !this.cursor.inTextMode;
+    this.textTable.applyLint(shouldTrimEnds);
     this.textarea.value = this.textTable.toString();
     this.updateTextareaSelectionFromCursors();
+
+    // Must be done after all states have been updates.
+    this.undoMgr.recordCurrState(this.getCurrState());
+
     if (this.onRenderHandler) {
       this.onRenderHandler();
     }
   }
 
-  updateTextareaSelectionFromCursors() {
+  undo() {
+    const state = this.undoMgr.undo();
+    if (state) {
+      this.loadState(state);
+    }
+  }
+  redo() {
+    const state = this.undoMgr.redo();
+    if (state) {
+      this.loadState(state);
+    }
+  }
+  private getCurrState() {
+    return new State(this.textTable.toString(), this.cursor.serialize());
+  }
+  private loadState(state: State) {
+    this.textTable = TextTable.fromString(state.tableStr);
+    this.cursor = TsCursor.deserialize(state.cursorStr);
+  }
+
+  private updateTextareaSelectionFromCursors() {
     this.textarea.selectionStart = this.inferSelectionStart();
     this.textarea.selectionEnd = this.inferSelectionEnd();
   }
@@ -71,7 +109,7 @@ export class TsEditor {
     this.keydownHandler = handler;
   }
 
-  handleTextareaKeydown(evt: KeyboardEvent) {
+  private handleTextareaKeydown(evt: KeyboardEvent) {
     const handleKeyDown = (evt: KeyboardEvent) => {
       if (this.keydownHandler) {
         return this.keydownHandler(evt);
@@ -93,21 +131,22 @@ export class TsEditor {
       currCell.text = str;
       this.cursor.inTextMode = true;
       this.cursor.textIdx = str.length;
-      return;
+      return shouldRerenderAndPreventDefault();
     }
     if (!this.cursor.inTextSelectionMode) {
       // TODO splice based on textIdx
       const oldText = currCell.text;
       currCell.text = oldText.slice(0, this.cursor.textIdx) + str + oldText.slice(this.cursor.textIdx);
       this.cursor.textIdx += str.length;
-      return;
+      return shouldRerenderAndPreventDefault();
     }
     // TODO: handle textSelectionMode
+    return shouldRerenderAndPreventDefault();
   }
+
   defaultKeydownHandler(evt: KeyboardEvent): KeydownHandlerOutput {
     if (evtIsLikelyInput(evt)) {
-      this.handleTextInput(evt.key);
-      return shouldRerenderAndPreventDefault();
+      return this.handleTextInput(evt.key);
     }
     if (evtIsHotkey(evt, 'tab')) {
       this.moveToRightCell();
@@ -155,7 +194,28 @@ export class TsEditor {
       };
       return shouldRerenderAndPreventDefault();
     }
+    if (evtIsHotkey(evt, 'cmd z')) {
+      this.undo();
+      return shouldRerenderAndPreventDefault();
+    }
+    if (evtIsHotkey(evt, 'cmd shift z')) {
+      this.redo();
+      return shouldRerenderAndPreventDefault();
+    }
+
     return shouldApplyBrowserDefaultWithoutRerendering();
+  }
+
+  handleClearAll() {
+    this.textTable = new TextTable();
+    this.cursor = new TsCursor();
+    return shouldRerenderAndPreventDefault();
+  }
+
+  handleAddRowAbove() {
+    this.textTable.cells.splice(this.cursor.rowIdx, 0, [new Cell()]);
+    this.cursor.colIdx = 0;
+    return shouldRerenderAndPreventDefault();
   }
 
   //removeEntireWord: removes until a space is encountered.
@@ -269,6 +329,9 @@ export class TsEditor {
       if (this.cursor.inTextSelectionMode) {
         return idx + this.cursor.textEndIdx;
       }
+      return idx;
+    }
+    if (!this.textTable.isWithinBound(this.cursor.rowIdx, this.cursor.colIdx)) {
       return idx;
     }
     const currCell = this.textTable.cells[this.cursor.rowIdx][this.cursor.colIdx];

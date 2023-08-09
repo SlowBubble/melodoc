@@ -24,6 +24,7 @@
         ["PageUp", "pageup"],
         ["PageDown", "pagedown"],
         ["Space", "space"],
+        ["Backslash", '\\'],
         // Numeric
         ["Digit1", "1"],
         [
@@ -265,6 +266,41 @@
         return strs.join(' ');
     }
 
+    class UndoMgr {
+        constructor(currState, equalFunc) {
+            this.currState = currState;
+            this.equalFunc = equalFunc;
+            this.statesForUndo = [];
+            this.statesForRedo = [];
+        }
+        recordCurrState(newCurrState) {
+            if (this.equalFunc(this.currState, newCurrState)) {
+                return;
+            }
+            this.statesForUndo.push(this.currState);
+            this.currState = newCurrState;
+            this.statesForRedo = [];
+        }
+        undo() {
+            const previousState = this.statesForUndo.pop();
+            if (!previousState) {
+                return;
+            }
+            this.statesForRedo.push(this.currState);
+            this.currState = previousState;
+            return this.currState;
+        }
+        redo() {
+            const nextState = this.statesForRedo.pop();
+            if (!nextState) {
+                return;
+            }
+            this.statesForUndo.push(this.currState);
+            this.currState = nextState;
+            return this.currState;
+        }
+    }
+
     class Cell {
         constructor(text = '') {
             this.text = text;
@@ -293,9 +329,12 @@
         getCellsInArray() {
             return this.cells.flatMap(row => row);
         }
-        applyLint() {
-            // Remove consecutive spaces
-            this.getCellsInArray().forEach(cell => stripConsecutiveSpaces(cell.text));
+        // TODO Only trim the ends in non-text mode or there will be some weird behavior when typing spaces.
+        applyLint(trimEnds = false) {
+            // this.getCellsInArray().forEach(cell => cell.text = stripConsecutiveSpaces(cell.text.trim()));
+            if (trimEnds) {
+                this.getCellsInArray().forEach(cell => cell.text = cell.text.trim());
+            }
             // Make each column have the same number of spaces
             const rowDimensions = this.cells.map(row => row.length);
             const tranposedCells = getTransposedCells(this.cells);
@@ -340,9 +379,6 @@
             transposedCells.push(getColumnsOfCells(cells, i));
         }
         return transposedCells;
-    }
-    function stripConsecutiveSpaces(str) {
-        return str.replace(/\s+/g, ' ');
     }
     function stringToCells(str, columnDelimiter = COLUMN_DELIMITER) {
         return str.split(ROW_DELIMITER).map(row => row.split(columnDelimiter).map(text => new Cell(text)));
@@ -394,6 +430,13 @@
             }
             this.inTextMode = false;
         }
+        serialize() {
+            return JSON.stringify(this);
+        }
+        static deserialize(str) {
+            const json = JSON.parse(str);
+            return new TsCursor(json.rowIdx, json.colIdx, json.inTextMode, json.textIdx, json.inTextSelectionMode, json.textEndIdx);
+        }
     }
 
     function shouldRerenderAndPreventDefault() {
@@ -414,6 +457,15 @@
             applyBrowserDefault: false,
         };
     }
+    class State {
+        constructor(tableStr = (new TextTable().toString()), cursorStr = (new TsCursor().serialize())) {
+            this.tableStr = tableStr;
+            this.cursorStr = cursorStr;
+        }
+        static equal(a, b) {
+            return a.tableStr === b.tableStr;
+        }
+    }
     class TsEditor {
         constructor(
         // I/O
@@ -425,6 +477,7 @@
             this.cursor = cursor;
             this.keydownHandler = keydownHandler;
             this.onRenderHandler = onRenderHandler;
+            this.undoMgr = new UndoMgr(new State(), State.equal);
             this.textarea.onkeydown = evt => this.handleTextareaKeydown(evt);
             this.textarea.onclick = evt => {
                 // TODO use the selection range to determine which cell the cursor should be on
@@ -434,13 +487,34 @@
             this.onRenderHandler = onRenderHandler;
         }
         render() {
-            // console.log('lint + update cursor')
-            this.textTable.applyLint();
+            const shouldTrimEnds = !this.cursor.inTextMode;
+            this.textTable.applyLint(shouldTrimEnds);
             this.textarea.value = this.textTable.toString();
             this.updateTextareaSelectionFromCursors();
+            // Must be done after all states have been updates.
+            this.undoMgr.recordCurrState(this.getCurrState());
             if (this.onRenderHandler) {
                 this.onRenderHandler();
             }
+        }
+        undo() {
+            const state = this.undoMgr.undo();
+            if (state) {
+                this.loadState(state);
+            }
+        }
+        redo() {
+            const state = this.undoMgr.redo();
+            if (state) {
+                this.loadState(state);
+            }
+        }
+        getCurrState() {
+            return new State(this.textTable.toString(), this.cursor.serialize());
+        }
+        loadState(state) {
+            this.textTable = TextTable.fromString(state.tableStr);
+            this.cursor = TsCursor.deserialize(state.cursorStr);
         }
         updateTextareaSelectionFromCursors() {
             this.textarea.selectionStart = this.inferSelectionStart();
@@ -472,21 +546,21 @@
                 currCell.text = str;
                 this.cursor.inTextMode = true;
                 this.cursor.textIdx = str.length;
-                return;
+                return shouldRerenderAndPreventDefault();
             }
             if (!this.cursor.inTextSelectionMode) {
                 // TODO splice based on textIdx
                 const oldText = currCell.text;
                 currCell.text = oldText.slice(0, this.cursor.textIdx) + str + oldText.slice(this.cursor.textIdx);
                 this.cursor.textIdx += str.length;
-                return;
+                return shouldRerenderAndPreventDefault();
             }
             // TODO: handle textSelectionMode
+            return shouldRerenderAndPreventDefault();
         }
         defaultKeydownHandler(evt) {
             if (evtIsLikelyInput(evt)) {
-                this.handleTextInput(evt.key);
-                return shouldRerenderAndPreventDefault();
+                return this.handleTextInput(evt.key);
             }
             if (evtIsHotkey(evt, 'tab')) {
                 this.moveToRightCell();
@@ -534,7 +608,25 @@
                 }
                 return shouldRerenderAndPreventDefault();
             }
+            if (evtIsHotkey(evt, 'cmd z')) {
+                this.undo();
+                return shouldRerenderAndPreventDefault();
+            }
+            if (evtIsHotkey(evt, 'cmd shift z')) {
+                this.redo();
+                return shouldRerenderAndPreventDefault();
+            }
             return shouldApplyBrowserDefaultWithoutRerendering();
+        }
+        handleClearAll() {
+            this.textTable = new TextTable();
+            this.cursor = new TsCursor();
+            return shouldRerenderAndPreventDefault();
+        }
+        handleAddRowAbove() {
+            this.textTable.cells.splice(this.cursor.rowIdx, 0, [new Cell()]);
+            this.cursor.colIdx = 0;
+            return shouldRerenderAndPreventDefault();
         }
         //removeEntireWord: removes until a space is encountered.
         // Returns whether or not there is anything removed.
@@ -644,6 +736,9 @@
                 }
                 return idx;
             }
+            if (!this.textTable.isWithinBound(this.cursor.rowIdx, this.cursor.colIdx)) {
+                return idx;
+            }
             const currCell = this.textTable.cells[this.cursor.rowIdx][this.cursor.colIdx];
             // add one so that for zero length text, user can still see the cell selected.
             const textLength = currCell.text.trimEnd().length;
@@ -664,7 +759,7 @@
             const textarea = document.createElement('textarea');
             textarea.id = 'editing-textarea';
             textarea.style.width = '100%';
-            textarea.style.fontSize = '24px';
+            textarea.style.fontSize = '20px';
             textarea.rows = 10;
             textarea.spellcheck = false;
             textarea.autofocus = true;
@@ -759,6 +854,33 @@
         return tokenInfos.length - 1;
     }
 
+    function rowHasChord(row) {
+        return row.some(cell => cell.text.includes('Chord:'));
+    }
+    function rowHasVoice(row) {
+        if (row.every(cell => !cell.text.includes(':'))) {
+            return true;
+        }
+        return row.some(cell => cell.text.includes('Voice:'));
+    }
+    function cleanup(row) {
+        return row.map(cell => cell.text.replace(/;/g, '|').replace(/.*:/g, '').trim());
+    }
+    function getVoiceRows(rows) {
+        const res = rows.filter(rowHasVoice);
+        if (res.length === 0) {
+            return [['', '_']];
+        }
+        return res.map(row => cleanup(row));
+    }
+    function getChordRows(rows) {
+        const res = rows.filter(rowHasChord);
+        if (res.length === 0) {
+            return [['', '_']];
+        }
+        return res.map(row => cleanup(row));
+    }
+
     function genMidiChordSheetLink(textTable) {
         const json = textTableToArrOfArrs(textTable);
         const jsonStr = JSON.stringify(json);
@@ -770,14 +892,11 @@
             ['', 'Meter: 4/4'],
             ['', 'Tempo: 180'],
             ['', 'Part: A'],
-            ['', '_'],
-            ['', 'Voice: A'],
         ];
-        const arrOfArrs = textTable.cells.map(row => row.map(cell => {
-            const text = cell.text.trim();
-            return text.replace(/;/g, '|');
-        }));
-        return res.concat(arrOfArrs);
+        res.push(...getChordRows(textTable.cells));
+        res.push(['', 'Voice: A']);
+        res.push(...getVoiceRows(textTable.cells));
+        return res;
     }
     function jsonStringToLink(jsonStr) {
         const baseLink = 'https://slowbubble.github.io/MidiChordSheet/';
@@ -801,6 +920,7 @@
         ['f', 53],
         ['c', 54],
         ['d', 55],
+        ['x', 56],
         ['s', 57],
         ['z', 58],
         ['a', 59],
@@ -860,112 +980,148 @@
     }
 
     class MsEditor {
-        constructor(tsEditor, magicMode = true, numFullBarsPerRow = 4, customHotkeyToAction = new Map()) {
+        constructor(tsEditor) {
             this.tsEditor = tsEditor;
-            this.magicMode = magicMode;
-            this.numFullBarsPerRow = numFullBarsPerRow;
-            this.customHotkeyToAction = customHotkeyToAction;
             this.buffer = [];
-            this.tsEditor.onKeydown(evt => {
-                if (this.magicMode) {
-                    return this.handleKeyDown(evt);
-                }
-                return this.tsEditor.defaultKeydownHandler(evt);
-            });
+            this.hotkeyToAction = new Map();
+            // The boolean is to signal whether or not to re-render
+            this.hotkeyToMagicAction = new Map();
+            this.customHotkeyToAction = new Map();
+            this.useMagicModeWhenInVoiceCell = true;
+            this.numFullBarsPerRow = 4;
+            this.magicDelayMs = 100;
+            this.tsEditor.onKeydown(evt => this.handleKeyDown(evt));
+            this.hotkeyToMagicAction.set('space', _ => this.handleAddProtraction());
+            this.hotkeyToMagicAction.set('`', _ => this.handleBacktick());
+            this.hotkeyToMagicAction.set('tab', _ => this.handleTab());
+            this.hotkeyToAction.set('cmd a', _ => this.tsEditor.handleClearAll());
+            this.hotkeyToAction.set('up', evt => this.tsEditor.defaultKeydownHandler(evt));
+            this.hotkeyToAction.set('down', evt => this.tsEditor.defaultKeydownHandler(evt));
+            // TODO impl custom logic
+            this.hotkeyToAction.set('shift tab', evt => this.tsEditor.defaultKeydownHandler(evt));
+            this.hotkeyToAction.set('cmd shift z', evt => this.tsEditor.defaultKeydownHandler(evt));
+            this.hotkeyToAction.set('left', _ => this.handleLeft());
+            this.hotkeyToAction.set('right', _ => this.handleRight());
+            this.hotkeyToAction.set('backspace', _ => this.handleBackspace());
+            this.hotkeyToAction.set('enter', _ => this.handleEnter());
+            this.hotkeyToAction.set('alt p', _ => this.handleAddChordRowAbove());
+            this.hotkeyToAction.set('tab', _ => this.handleTab());
+        }
+        isInVoiceCell() {
+            const row = this.tsEditor.textTable.cells[this.tsEditor.cursor.rowIdx];
+            if (!row) {
+                return true;
+            }
+            return rowHasVoice(row);
+        }
+        handleAddChordRowAbove() {
+            this.tsEditor.textTable.cells.splice(this.tsEditor.cursor.rowIdx, 0, [new Cell('Chord:'), new Cell()]);
+            this.tsEditor.cursor.colIdx = 1;
+            return shouldRerenderAndPreventDefault();
         }
         getMidiChordSheetLink() {
             return genMidiChordSheetLink(this.tsEditor.textTable);
         }
         getMelodocLink() {
             let baseLink = 'https://slowbubble.github.io/melodoc/';
+            // Uncomment the line below if you need to test the web app locally from the add-on generated link.
             // baseLink = 'http://localhost:8000/';
             const textContent = this.tsEditor.textTable.toString(true);
             return addKeyValToUrl(baseLink, 'data', textContent);
         }
         handleKeyDown(evt) {
-            // google add-on shortcuts;
-            const action = this.customHotkeyToAction.get(evtToStandardString(evt));
-            if (action) {
-                action();
+            const evtStandardStr = evtToStandardString(evt);
+            // 0. Custom hotkeys.
+            const customAction = this.customHotkeyToAction.get(evtStandardStr);
+            if (customAction) {
+                const output = customAction(evt);
+                return output || shouldPreventDefaultWithoutRerendering();
+            }
+            // 1. Browser default hotkeys.
+            if (evtIsHotkey(evt, 'cmd r')) {
+                return shouldApplyBrowserDefaultWithoutRerendering();
+            }
+            const inMagicMode = this.isInVoiceCell() && this.useMagicModeWhenInVoiceCell && (this.hotkeyToMagicAction.get(evtStandardStr) || isMagicNoteInput(evt));
+            // 2. Magic/delayed hotkeys take precedence over non-delayed hotkeys.
+            if (inMagicMode) {
+                this.buffer.push(evt);
+                window.setTimeout(() => this.magicHandle(), this.magicDelayMs);
+                // No-op because we will handle it in handleKeyDownAfterReordering.
                 return shouldPreventDefaultWithoutRerendering();
             }
-            // Need to disable custom behavior to avoid infinite loop.
-            this.buffer.push(evt);
-            window.setTimeout(() => {
-                // Special keys should come before other keys
-                this.buffer.sort((evt1, evt2) => {
-                    const isSpecialKey = evtIsHotkey(evt1, 'tab') || evtIsHotkey(evt1, '`');
-                    const isSpecialKey2 = evtIsHotkey(evt2, 'tab') || evtIsHotkey(evt2, '`');
-                    if (!isSpecialKey && isSpecialKey2) {
-                        return 1;
-                    }
-                    return -1;
-                });
-                let rerender = false;
-                this.buffer.forEach(evt => {
-                    const shouldRerender = this.handleKeyDownAfterOrdering(evt);
-                    rerender || (rerender = shouldRerender);
-                });
-                this.buffer = [];
-                if (rerender) {
-                    this.tsEditor.render();
-                }
-            }, 100);
-            // Browser default needs to be explicitly enabled.
-            if (evtIsHotkey(evt, 'cmd r'))
-                return shouldApplyBrowserDefaultWithoutRerendering();
-            if (evtIsHotkey(evt, 'cmd c'))
-                return shouldApplyBrowserDefaultWithoutRerendering();
-            if (evtIsHotkey(evt, 'cmd x'))
-                return shouldApplyBrowserDefaultWithoutRerendering();
-            // No-op because we will handle it in handleKeyDownAfterOrdering.
+            // 3. Non-delayed hotkeys.
+            const action = this.hotkeyToAction.get(evtStandardStr);
+            if (action) {
+                return action(evt);
+            }
+            // 4. Fall-back to tsEditor default.
+            // if (!evtIsLikelyInput(evt)) {
+            if (!inMagicMode) {
+                return this.tsEditor.defaultKeydownHandler(evt);
+            }
+            // 5. No-op
             return shouldPreventDefaultWithoutRerendering();
         }
-        // Returns whether or not to re-render.
-        handleKeyDownAfterOrdering(evt) {
-            if (evtIsHotkey(evt, '`')) {
-                const numDividersInCell = (this.tsEditor.getCurrCell().text.match(/;/g) || []).length;
-                // TODO Use meterDenom - 1 instead of 3.
-                const hasEnoughDividers = numDividersInCell === 3;
-                if (hasEnoughDividers) {
-                    this.handleTab();
-                    return true;
+        magicHandle() {
+            // Special keys should come before other keys
+            this.buffer.sort((evt1, evt2) => {
+                const isSpecialKey = evtIsHotkey(evt1, 'tab') || evtIsHotkey(evt1, '`');
+                const isSpecialKey2 = evtIsHotkey(evt2, 'tab') || evtIsHotkey(evt2, '`');
+                if (!isSpecialKey && isSpecialKey2) {
+                    return 1;
                 }
-                this.addDivider();
-                return true;
+                return -1;
+            });
+            let rerender = false;
+            this.buffer.forEach(evt => {
+                const magicAction = this.hotkeyToMagicAction.get(evtToStandardString(evt));
+                if (magicAction) {
+                    const output = magicAction(evt);
+                    rerender || (rerender = output.rerender);
+                }
+                const output = this.handleNoteInput(evt);
+                rerender || (rerender = output.rerender);
+            });
+            this.buffer = [];
+            if (rerender) {
+                this.tsEditor.render();
             }
-            if (evtIsHotkey(evt, 'space')) {
-                this.addProtraction();
-                return true;
+        }
+        handleBackspace() {
+            const hasChanged = this.tsEditor.removeTextOrMoveBack(true);
+            if (!hasChanged) {
+                this.moveLeftOrUpRightWhereTextExists(true);
             }
+            return shouldRerenderAndPreventDefault();
+        }
+        handleEnter() {
+            if (!this.tsEditor.cursor.inTextMode) {
+                this.tsEditor.enterTextMode();
+            }
+            else {
+                this.handleTab();
+            }
+            return shouldRerenderAndPreventDefault();
+        }
+        handleNoteInput(evt) {
             if (evtIsLikelyInput(evt)) {
                 const possNoteNum = mapKeyToNoteNum(evt.key);
                 if (possNoteNum) {
                     const abc = noteNumToAbc(possNoteNum);
                     this.handleTextInputWithPadding(abc);
-                    return true;
+                    return shouldRerenderAndPreventDefault();
                 }
             }
-            if (evtIsHotkey(evt, 'tab')) {
-                this.handleTab();
-                return true;
+            return shouldPreventDefaultWithoutRerendering();
+        }
+        handleBacktick() {
+            const numDividersInCell = (this.tsEditor.getCurrCell().text.match(/;/g) || []).length;
+            // TODO Use meterDenom - 1 instead of 3.
+            const hasEnoughDividers = numDividersInCell === 3;
+            if (hasEnoughDividers) {
+                return this.handleTab();
             }
-            if (evtIsHotkey(evt, 'backspace')) {
-                const hasChanged = this.tsEditor.removeTextOrMoveBack(true);
-                if (!hasChanged) {
-                    this.moveLeftOrUpRightWhereTextExists(true);
-                }
-                return true;
-            }
-            if (evtIsHotkey(evt, 'left')) {
-                this.handleLeft();
-                return true;
-            }
-            if (evtIsHotkey(evt, 'right')) {
-                this.handleRight();
-                return true;
-            }
-            return false;
+            return this.handleAddDivider();
         }
         // Move left if there is text in any cells in the left.
         // Otherwise, move up one row to the right-most cell with content
@@ -993,8 +1149,6 @@
                 // Remove the entire row if nothing is below it.
                 const rowsBelow = this.tsEditor.textTable.cells.slice(oldRowIdx);
                 const hasStuffBelow = rowsBelow.some(row => row.some(cell => !cell.isEmpty()));
-                console.log(rowsBelow);
-                console.log(hasStuffBelow);
                 if (!hasStuffBelow) {
                     this.tsEditor.textTable.cells = this.tsEditor.textTable.cells.slice(0, oldRowIdx);
                 }
@@ -1012,35 +1166,38 @@
         handleLeft() {
             if (this.tsEditor.cursor.inTextMode && this.tsEditor.cursor.textIdx > 0) {
                 this.tsEditor.cursor.textIdx = getTextIdxOnTheLeft(this.tsEditor.getCurrCell().text, this.tsEditor.cursor.textIdx);
-                return;
+                return shouldRerenderAndPreventDefault();
             }
             this.tsEditor.moveToLeftCell();
+            return shouldRerenderAndPreventDefault();
         }
         handleRight() {
             const text = this.tsEditor.getCurrCell().text;
             if (this.tsEditor.cursor.inTextMode && this.tsEditor.cursor.textIdx < text.length) {
                 this.tsEditor.cursor.textIdx = getTextIdxOnTheRight(text, this.tsEditor.cursor.textIdx);
-                return;
+                return shouldRerenderAndPreventDefault();
             }
             if (this.tsEditor.cursor.colIdx === this.numFullBarsPerRow) {
-                return;
+                return shouldRerenderAndPreventDefault();
             }
             this.tsEditor.moveToRightCell();
+            return shouldRerenderAndPreventDefault();
         }
         handleTab() {
             if (this.tsEditor.cursor.colIdx < this.numFullBarsPerRow) {
                 this.tsEditor.moveToRightCell();
-                return;
+                return shouldRerenderAndPreventDefault();
             }
             this.tsEditor.moveDownToLeftmostColumn();
             // Move right before the left-most cell is the pick-up bar.
             this.tsEditor.moveToRightCell();
+            return shouldRerenderAndPreventDefault();
         }
-        addDivider() {
-            this.handleTextInputWithPadding(';');
+        handleAddDivider() {
+            return this.handleTextInputWithPadding(';');
         }
-        addProtraction() {
-            this.handleTextInputWithPadding('_');
+        handleAddProtraction() {
+            return this.handleTextInputWithPadding('_');
         }
         handleTextInputWithPadding(text) {
             const cursor = this.tsEditor.cursor;
@@ -1051,8 +1208,17 @@
             else if (this.tsEditor.getCurrCell().text.slice(cursor.textIdx - 1, cursor.textIdx) === ' ') {
                 paddedText = `${text} `;
             }
-            this.tsEditor.handleTextInput(paddedText);
+            return this.tsEditor.handleTextInput(paddedText);
         }
+    }
+    function isMagicNoteInput(evt) {
+        if (isPossHotkey(evt)) {
+            return false;
+        }
+        return mapKeyToNoteNum(evt.key) !== undefined;
+    }
+    function isPossHotkey(evt) {
+        return evt.metaKey || evt.ctrlKey || evt.altKey || evt.shiftKey;
     }
 
     class MsUi extends HTMLElement {
@@ -1092,8 +1258,8 @@
 
     function setupGoogleAddOnActions(msEditor) {
         // TODO add a shortcut for resizing modal.
-        document.getElementById('add-image-button')?.addEventListener('keydown', () => addImageWithLinkToDoc(msEditor.getMelodocLink()));
-        msEditor.customHotkeyToAction.set('shift i', () => addImageWithLinkToDoc(msEditor.getMelodocLink()));
+        document.getElementById('add-image-button')?.addEventListener('keydown', _ => addImageWithLinkToDoc(msEditor.getMelodocLink()));
+        msEditor.customHotkeyToAction.set('alt i', _ => addImageWithLinkToDoc(msEditor.getMelodocLink()));
         // Autofocus does not work for google add-on, so focus explicitly.
         msEditor.tsEditor.textarea.focus();
     }

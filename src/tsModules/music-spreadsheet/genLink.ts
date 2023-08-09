@@ -1,4 +1,5 @@
 import { TextTable } from "../textarea-spreadsheet/textTable";
+import { getChordRows, getVoiceRows } from "./parsingUtil";
 
 export function genMidiChordSheetLink(textTable: TextTable) {
   const json = textTableToArrOfArrs(textTable);
@@ -12,14 +13,11 @@ function textTableToArrOfArrs(textTable: TextTable) {
     ['', 'Meter: 4/4'],
     ['', 'Tempo: 180'],
     ['', 'Part: A'],
-    ['', '_'],
-    ['', 'Voice: A'],
   ];
-  const arrOfArrs = textTable.cells.map(row => row.map(cell => {
-    const text = cell.text.trim();
-    return text.replace(/;/g, '|');
-  }));
-  return res.concat(arrOfArrs);
+  res.push(...getChordRows(textTable.cells));
+  res.push(['', 'Voice: A']);
+  res.push(...getVoiceRows(textTable.cells));
+  return res;
 }
 
 function jsonStringToLink(jsonStr: string) {
