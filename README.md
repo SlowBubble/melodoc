@@ -23,40 +23,37 @@ Chord:    | Cmaj7 Am7             | Dm7 G7                   | C6
 
 # TODO
 
-- See if document.body.addEventListener works for "shift i".
-- Replace or insert image instead of appending
-  - currElt = DocumentApp.getActiveDocument().getSelection()?.getRangeElements()[0].getElement()
-  - currElt = DocumentApp.getActiveDocument().getCursor()?.getElement()?
-  - currEltIdx = DocumentApp.getActiveDocument().getBody().getChildIndex(currElt)
-  - DocumentApp.getActiveDocument().getBody().removeChild(currElt) 
-  - insertImage(currEltIdx, image) 
-
-- Get a good image.
-  - Do something quick that can be added/removed easily.
-
+- Title
+  - Try chinese
+- enharmonic
 
 ## Open question
 
+### Answered
 - Is it worth having shift+key shortcuts by applying it when not in text mode? No
   - In non-melody cell, we do need shift+key for text entry without entering text mode.
   - The issue is that I don't pay attention to whether or not I'm in text mode.
+- Url data is encoded using x-www-form-urlencoded format. Is that good? Yes
+  - It is more readable than that of encodeURIComponent.
+  - Will see if Chinese is okay using this encoding.
 
 ## Doc Add-On
-### P2
- 
-- Will follow up with a good image in the next iteration
-  - Need to port over the minimum amount of code to generate abc js stuff.
+
+- Should we support inserting at a non-top-level location?
+  - It's hard, so may be P3.
 
 ## MsEditor
 ### P1
 
 - backspace: will remove the entire line if empty.
-- Add buttons to add or modify headers.
+- Think of what shortcuts I should use to add headers.
+  - Need to make the header names discoverable.
+- enharmonic
+  - Unfortunately, this will not be reflected in the sheet music, just the textarea. (see if I can fix it)
 
 ### P2
 
-- enharmonic
-  - Unfortunately, this will not be reflected in the sheet music, just the textarea.
+
 - up/down arrow
 - Delete: remove token to the right in the same cell.
 - Think of shortcuts to add a row or remove a row
@@ -83,5 +80,4 @@ Chord:    | Cmaj7 Am7             | Dm7 G7                   | C6
 
 # Done
 
-- Note: url data is encoded using x-www-form-urlencoded format.
-  - This is more readable than that of encodeURIComponent.
+
