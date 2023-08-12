@@ -12,9 +12,16 @@
     <dialog id='inserting-dialog'>
       Inserting...
     </dialog>
+    <div id='tmp-sheet-container'></div>
+    <canvas id="tmp-sheet-canvas"></canvas>
     <script>
       const linkPointedToByCursor = '<?= getLinkPointedToByCursor() ?>';
     </script>
+    <?!= include('build/abcjs.js.html'); ?>
+    <?!= include('build/canvg.js.html'); ?>
+    <?!= include('build/nearley.js.html'); ?>
+    <?!= include('build/melodicCell.js.html'); ?>
+    <?!= include('build/chordParser.js.html'); ?>
     <?!= include('build/googleAddOnMain.js.html'); ?>
   </body>
 </html>

@@ -13,7 +13,7 @@ export class MsEditor {
   private hotkeyToAction = new Map<string, (evt: KeyboardEvent) => KeydownHandlerOutput>();
   // The boolean is to signal whether or not to re-render
   private hotkeyToMagicAction = new Map<string, (evt: KeyboardEvent) => KeydownHandlerOutput>();
-  public customHotkeyToAction = new Map<string, (evt: KeyboardEvent) => KeydownHandlerOutput | void>();
+  public customHotkeyToAction = new Map<string, (evt: KeyboardEvent) => KeydownHandlerOutput | void | Promise<void>>();
   public useMagicModeWhenInVoiceCell = true;
   public numFullBarsPerRow = 4;
   public magicDelayMs = 100;
@@ -25,7 +25,7 @@ export class MsEditor {
     this.hotkeyToMagicAction.set('`', _ => this.handleBacktick());
     this.hotkeyToMagicAction.set('tab', _ => this.handleTab());
 
-    this.hotkeyToAction.set('cmd a', _ => this.tsEditor.handleClearAll());
+    this.hotkeyToAction.set('alt q', _ => this.tsEditor.handleClearAll());
     this.hotkeyToAction.set('up', evt => this.tsEditor.defaultKeydownHandler(evt));
     this.hotkeyToAction.set('down', evt => this.tsEditor.defaultKeydownHandler(evt));
     // TODO impl custom logic
@@ -35,7 +35,8 @@ export class MsEditor {
     this.hotkeyToAction.set('right', _ => this.handleRight());
     this.hotkeyToAction.set('backspace', _ => this.handleBackspace());
     this.hotkeyToAction.set('enter', _ => this.handleEnter());
-    this.hotkeyToAction.set('alt p', _ => this.handleAddChordRowAbove());
+    this.hotkeyToAction.set('alt up', _ => this.handleAddChordRow(true));
+    this.hotkeyToAction.set('alt down', _ => this.handleAddChordRow());
     this.hotkeyToAction.set('tab', _ => this.handleTab());
   }
 
@@ -47,10 +48,15 @@ export class MsEditor {
     return rowHasVoice(row);
   }
 
-  handleAddChordRowAbove() {
+  handleAddChordRow(aboveInsteadOfBelow=false) {
+    const rowIdx = aboveInsteadOfBelow ?
+      this.tsEditor.cursor.rowIdx : this.tsEditor.cursor.rowIdx + 1;
     this.tsEditor.textTable.cells.splice(
-      this.tsEditor.cursor.rowIdx, 0, [new Cell('Chord:'), new Cell()]);
+      rowIdx, 0, [new Cell('Chord:'), new Cell()]);
     this.tsEditor.cursor.colIdx = 1;
+    if (!aboveInsteadOfBelow) {
+      this.tsEditor.cursor.rowIdx++;
+    }
     return shouldRerenderAndPreventDefault();
   }
 
@@ -68,16 +74,21 @@ export class MsEditor {
 
   handleKeyDown(evt: KeyboardEvent): KeydownHandlerOutput {
     const evtStandardStr = evtToStandardString(evt);
-
+    console.log('Handling hotkey: ', evtStandardStr);
     // 0. Custom hotkeys.
     const customAction = this.customHotkeyToAction.get(evtStandardStr);
     if (customAction) {
+      console.log('0. Custom hotkeys.');
       const output = customAction(evt);
-      return output || shouldPreventDefaultWithoutRerendering();
+      if (!output || output instanceof Promise) {
+        return shouldPreventDefaultWithoutRerendering();
+      }
+      return output;
     }
 
     // 1. Browser default hotkeys.
     if (evtIsHotkey(evt, 'cmd r')) {
+      console.log('1. Browser default hotkeys.');
       return shouldApplyBrowserDefaultWithoutRerendering();
     }
 
@@ -85,6 +96,7 @@ export class MsEditor {
       this.hotkeyToMagicAction.get(evtStandardStr) || isMagicNoteInput(evt));
     // 2. Magic/delayed hotkeys take precedence over non-delayed hotkeys.
     if (inMagicMode) {
+      console.log('2. magic action');
       this.buffer.push(evt);
       window.setTimeout(() => this.magicHandle(), this.magicDelayMs);
       // No-op because we will handle it in handleKeyDownAfterReordering.
@@ -94,15 +106,18 @@ export class MsEditor {
     // 3. Non-delayed hotkeys.
     const action = this.hotkeyToAction.get(evtStandardStr);
     if (action) {
+      console.log('3. msEditor action');
       return action(evt);
     }
     // 4. Fall-back to tsEditor default.
     // if (!evtIsLikelyInput(evt)) {
     if (!inMagicMode) {
+      console.log('4. tsEditor action');
       return this.tsEditor.defaultKeydownHandler(evt);
     }
 
     // 5. No-op
+    console.log('5. No-op');
     return shouldPreventDefaultWithoutRerendering();
   }
 

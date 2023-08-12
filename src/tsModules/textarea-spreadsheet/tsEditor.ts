@@ -1,3 +1,4 @@
+import { codeToHotkey } from "../hotkey-util/hotkeyAndCode";
 import { evtIsHotkey, evtIsLikelyInput } from "../hotkey-util/hotkeyUtil";
 import { UndoMgr } from "../undo/undoMgr";
 import { Cell } from "./cell";
@@ -57,7 +58,15 @@ export class TsEditor {
     this.textarea.onkeydown = evt => this.handleTextareaKeydown(evt)
     this.textarea.onclick = evt => {
       // TODO use the selection range to determine which cell the cursor should be on
+      console.log('onclick', evt);
     }
+    // For text input like shift+enter or alt+i, keydownEvt.preventDefault() does not work
+    // so I have to intercept them here and revert the changes by running render().
+    this.textarea.oninput = evt => {
+      console.log('Reverting this input evt', evt);
+      this.render();
+    };
+    this.textarea.onpaste = evt => this.paste(evt);
   }
 
   onRender(onRenderHandler: Function) {
@@ -76,6 +85,7 @@ export class TsEditor {
     if (this.onRenderHandler) {
       this.onRenderHandler();
     }
+    console.log('rendered========')
   }
 
   undo() {
@@ -110,6 +120,11 @@ export class TsEditor {
   }
 
   private handleTextareaKeydown(evt: KeyboardEvent) {
+    const endKey = codeToHotkey.get(evt.code);
+    if (endKey && endKeysToIgnore.has(endKey)) {
+      return;
+    }
+
     const handleKeyDown = (evt: KeyboardEvent) => {
       if (this.keydownHandler) {
         return this.keydownHandler(evt);
@@ -206,6 +221,21 @@ export class TsEditor {
     return shouldApplyBrowserDefaultWithoutRerendering();
   }
 
+  // Must be triggered from cmd+v due to browser security.
+  paste(evt: ClipboardEvent) {
+    evt.preventDefault();
+    if (!evt.clipboardData) {
+      return;
+    }
+    const data = evt.clipboardData.getData("text");
+    if (this.textarea.value.trim().length !== 0) {
+      // TODO handle this
+      return;
+    }
+    this.textTable = TextTable.fromString(data);
+    this.cursor = new TsCursor();
+    this.render();
+  }
   handleClearAll() {
     this.textTable = new TextTable();
     this.cursor = new TsCursor();
@@ -343,3 +373,6 @@ export class TsEditor {
     return idx + textLength;
   }
 }
+
+const endKeysToIgnore = new Set(['shift', 'alt', 'cmd', 'ctrl', 'meta']);
+

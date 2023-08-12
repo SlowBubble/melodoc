@@ -2,12 +2,12 @@ import { TextTable } from "../textarea-spreadsheet/textTable";
 import { getChordRows, getVoiceRows } from "./parsingUtil";
 
 export function genMidiChordSheetLink(textTable: TextTable) {
-  const json = textTableToArrOfArrs(textTable);
+  const json = textTableToGridData(textTable);
   const jsonStr = JSON.stringify(json);
   return jsonStringToLink(jsonStr);
 }
 
-function textTableToArrOfArrs(textTable: TextTable) {
+export function textTableToGridData(textTable: TextTable) {
   const res = [
     ['', 'Key: C'],
     ['', 'Meter: 4/4'],

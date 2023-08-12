@@ -1,3 +1,5 @@
+import { genSheetImage } from "./genSheetImage";
+import { textTableToGridData } from "./tsModules/music-spreadsheet/genLink";
 import { MsEditor } from "./tsModules/music-spreadsheet/msEditor";
 
 declare const google: any;
@@ -5,9 +7,9 @@ declare const google: any;
 export function setupGoogleAddOnActions(msEditor: MsEditor) {
   // TODO add a shortcut for resizing modal.
   document.getElementById('add-image-button')?.addEventListener(
-    'keydown', _ => addImageWithLinkToDoc(msEditor.getMelodocLink()));
+    'keydown', _ => addLinkedImageToDoc(msEditor));
   msEditor.customHotkeyToAction.set(
-    'alt i', _ => addImageWithLinkToDoc(msEditor.getMelodocLink()));
+    'alt x', _ => addLinkedImageToDoc(msEditor));
   // Autofocus does not work for google add-on, so focus explicitly.
   msEditor.tsEditor.textarea.focus();
 }
@@ -20,25 +22,12 @@ function onFailure(error: Error) {
   alert(error.message);
 }
 
-export function addImageWithLinkToDoc(link: string) {
+function addLinkedImageToDoc(msEditor: MsEditor) {
   const dialog = document.getElementById('inserting-dialog') as HTMLDialogElement;
   dialog.showModal();
 
-  const canvas = document.getElementById('myCanvas') as HTMLCanvasElement;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    dialog.close();
-    return;
-  }
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(0, 100);
-  ctx.lineTo(200, 100);
-  ctx.lineTo(200, 0);
-  ctx.lineTo(0, 0);
-  ctx.stroke();
-
-  canvas.toBlob(async (blob: Blob | null) => {
+  const link = msEditor.getMelodocLink();
+  genSheetImage(textTableToGridData(msEditor.tsEditor.textTable), async blob => {
     if (!blob) {
       dialog.close();
       return;
@@ -49,5 +38,4 @@ export function addImageWithLinkToDoc(link: string) {
       .withFailureHandler(onFailure)
       .addImageWithLink(blobInArray, link);
   });
-  
 }

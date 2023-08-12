@@ -23,9 +23,6 @@ Chord:    | Cmaj7 Am7             | Dm7 G7                   | C6
 
 # TODO
 
-- Pasting not working.
-- Adding chords
-
 - See if document.body.addEventListener works for "shift i".
 - Replace or insert image instead of appending
   - currElt = DocumentApp.getActiveDocument().getSelection()?.getRangeElements()[0].getElement()
@@ -40,7 +37,8 @@ Chord:    | Cmaj7 Am7             | Dm7 G7                   | C6
 
 ## Open question
 
-- Is it worth having shift+key shortcuts by applying it when not in text mode?
+- Is it worth having shift+key shortcuts by applying it when not in text mode? No
+  - In non-melody cell, we do need shift+key for text entry without entering text mode.
   - The issue is that I don't pay attention to whether or not I'm in text mode.
 
 ## Doc Add-On
@@ -48,7 +46,6 @@ Chord:    | Cmaj7 Am7             | Dm7 G7                   | C6
  
 - Will follow up with a good image in the next iteration
   - Need to port over the minimum amount of code to generate abc js stuff.
-  - Then html2canvas can take a screenshot of the svg.
 
 ## MsEditor
 ### P1
@@ -68,7 +65,8 @@ Chord:    | Cmaj7 Am7             | Dm7 G7                   | C6
   - Requires understanding which part we are in
 - When cursor is in text mode, cursor should move to the right of next white space
   - or exit text mode and go to next cell.
-- shortcut to copy previous cell.
+- textarea.style.whiteSpace = 'nowrap';
+  - Need to automatically apply textarea.scrollLeft though.
 
 ## MidiChordSheet
 

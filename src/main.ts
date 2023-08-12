@@ -5,6 +5,8 @@ import { isInGoogleAddOn } from "./tsModules/google-add-on/googleAddOn";
 import { MsUi } from "./tsModules/music-spreadsheet/msUi";
 import { TextTable } from "./tsModules/textarea-spreadsheet/textTable";
 import { getUrlParamsMapFromString, setUrlParam } from "./url";
+import { textTableToGridData } from "./tsModules/music-spreadsheet/genLink";
+import { genSheetImage } from "./genSheetImage";
 
 export function main(url: string) {
   const mainDiv = document.getElementById('main') as HTMLDivElement;
@@ -24,6 +26,16 @@ export function main(url: string) {
     msUiElt.onRender(() => {
       const textContent = msUiElt.msEditor.tsEditor.textTable.toString(true);
       setUrlParam('data', textContent);
+    });
+    msUiElt.msEditor.customHotkeyToAction.set('alt x', async _ => {
+      genSheetImage(textTableToGridData(msUiElt.msEditor.tsEditor.textTable), blob => {
+        if (!blob) {
+          return;
+        }
+        const item = {[blob.type]: blob};
+        navigator.clipboard.write([new ClipboardItem(item),
+        ]);
+      });
     });
   }
 
