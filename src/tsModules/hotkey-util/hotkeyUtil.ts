@@ -65,8 +65,8 @@ function hotkeyInfoToStandardString(info: HotkeyInfo): string {
   const strs = [];
   if (info.metaKey) { strs.push('cmd'); }
   if (info.ctrlKey) { strs.push('ctrl'); }
-  if (info.shiftKey) { strs.push('shift'); }
   if (info.altKey) { strs.push('alt');}
+  if (info.shiftKey) { strs.push('shift'); }
   strs.push(info.endKey);
   return strs.join(' ');
 }

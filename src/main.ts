@@ -5,7 +5,7 @@ import { isInGoogleAddOn } from "./tsModules/google-add-on/googleAddOn";
 import { MsUi } from "./tsModules/music-spreadsheet/msUi";
 import { TextTable } from "./tsModules/textarea-spreadsheet/textTable";
 import { getUrlParamsMapFromString, setUrlParam } from "./url";
-import { textTableToGridData } from "./tsModules/music-spreadsheet/genLink";
+import { getTitle, textTableToGridData } from "./tsModules/music-spreadsheet/genLink";
 import { genSheetImage } from "./genSheetImage";
 
 export function main(url: string) {
@@ -28,7 +28,8 @@ export function main(url: string) {
       setUrlParam('data', textContent);
     });
     msUiElt.msEditor.customHotkeyToAction.set('alt x', async _ => {
-      genSheetImage(textTableToGridData(msUiElt.msEditor.tsEditor.textTable), blob => {
+      const title = getTitle(msUiElt.msEditor.tsEditor.textTable);
+      genSheetImage(textTableToGridData(msUiElt.msEditor.tsEditor.textTable), title, blob => {
         if (!blob) {
           return;
         }

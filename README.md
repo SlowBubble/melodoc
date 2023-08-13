@@ -23,7 +23,7 @@ Chord:    | Cmaj7 Am7             | Dm7 G7                   | C6
 
 # TODO
 
-- Title
+- X: Title
   - Try chinese
 - enharmonic
 
@@ -39,6 +39,9 @@ Chord:    | Cmaj7 Am7             | Dm7 G7                   | C6
 
 ## Doc Add-On
 
+- Use a sidebar to open things.
+
+### P3
 - Should we support inserting at a non-top-level location?
   - It's hard, so may be P3.
 
@@ -52,7 +55,6 @@ Chord:    | Cmaj7 Am7             | Dm7 G7                   | C6
   - Unfortunately, this will not be reflected in the sheet music, just the textarea. (see if I can fix it)
 
 ### P2
-
 
 - up/down arrow
 - Delete: remove token to the right in the same cell.

@@ -1,9 +1,10 @@
 import { addKeyValToUrl } from "../../url";
 import { evtIsHotkey, evtIsLikelyInput, evtToStandardString } from "../hotkey-util/hotkeyUtil";
 import { Cell } from "../textarea-spreadsheet/cell";
+import { TextTable } from "../textarea-spreadsheet/textTable";
 import { getTextIdxOnTheLeft, getTextIdxOnTheRight } from "../textarea-spreadsheet/textUtil";
 import { KeydownHandlerOutput, TsEditor, shouldApplyBrowserDefaultWithoutRerendering, shouldPreventDefaultWithoutRerendering, shouldRerenderAndPreventDefault } from "../textarea-spreadsheet/tsEditor";
-import { genMidiChordSheetLink } from "./genLink";
+import { genMidiChordSheetLink, getTitle, getTitleCell } from "./genLink";
 import { mapKeyToNoteNum } from "./keyToNoteNumMapping";
 import { noteNumToAbc } from "./noteNumToAbcMapping";
 import { rowHasVoice } from "./parsingUtil";
@@ -38,6 +39,8 @@ export class MsEditor {
     this.hotkeyToAction.set('alt up', _ => this.handleAddChordRow(true));
     this.hotkeyToAction.set('alt down', _ => this.handleAddChordRow());
     this.hotkeyToAction.set('tab', _ => this.handleTab());
+    this.hotkeyToAction.set('alt shift t', _ => this.handleTitleChange());
+    this.hotkeyToAction.set('alt d', _ => this.handleDeleteRow());
   }
 
   isInVoiceCell() {
@@ -46,6 +49,39 @@ export class MsEditor {
       return true;
     }
     return rowHasVoice(row);
+  }
+
+  handleTitleChange() {
+    const currTitle = getTitle(this.tsEditor.textTable);
+    const title = prompt('Enter a title:', currTitle);
+    if (!title) {
+      return shouldRerenderAndPreventDefault();
+    }
+    const titleCell = getTitleCell(this.tsEditor.textTable);
+    const text = `Title: ${title}`;
+    if (titleCell) {
+      titleCell.text = text;
+    } else {
+      this.tsEditor.textTable.cells.splice(
+        0, 0, [new Cell(), new Cell(text)]);
+      this.tsEditor.cursor.rowIdx = 0;
+      this.tsEditor.cursor.colIdx = 1;
+    }
+    return shouldRerenderAndPreventDefault();
+  }
+
+  handleDeleteRow() {
+    const rowIdx = this.tsEditor.cursor.rowIdx;
+    if (this.tsEditor.textTable.cells.length <= 1) {
+      this.tsEditor.textTable = new TextTable();
+    } else {
+      this.tsEditor.textTable.cells.splice(rowIdx, 1);
+    }
+    if (this.tsEditor.cursor.rowIdx >= this.tsEditor.textTable.cells.length) {
+      this.tsEditor.cursor.rowIdx = this.tsEditor.textTable.cells.length - 1;
+    }
+    this.tsEditor.cursor.colIdx = 0;
+    return shouldRerenderAndPreventDefault();
   }
 
   handleAddChordRow(aboveInsteadOfBelow=false) {

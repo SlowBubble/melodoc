@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  </head>
+  <body>
+    <div>
+      <ul>
+        <li>
+          To create a new Melodoc, point to a blank paragraph and click "Create / Edit".
+        </li>
+        <li>
+          To edit an existing Melodoc, select the Melodoc image and click "Create / Edit".
+        </li>
+      </ul>
+    </div>
+    <div>
+      <button id="create-button" style="padding: 10px">Create / Edit</button>
+    </div>
+    <script>
+      document.getElementById('create-button').onclick = _ => {
+        google.script.run.showEditor();
+      };
+    </script>
+  </body>
+</html>

@@ -1,6 +1,7 @@
 function onOpen(e) {
   DocumentApp.getUi().createAddonMenu()
       .addItem('Create/Edit', 'showEditor')
+      .addItem('Menu', 'showSidebar')
       .addToUi();
 }
 
@@ -10,6 +11,14 @@ function showEditor() {
     .setHeight(1200);
   DocumentApp.getUi() // Or DocumentApp or SlidesApp or FormApp.
     .showModalDialog(html, 'Melodoc Editor');
+}
+
+function showSidebar() {
+  var html = HtmlService.createHtmlOutputFromFile('Sidebar')
+    .setTitle('Melodoc Menu');
+  DocumentApp.getUi() // Or DocumentApp or SlidesApp or FormApp.
+    .showSidebar(html);
+
 }
 
 function include(filename) {

@@ -1,5 +1,5 @@
 import { genSheetImage } from "./genSheetImage";
-import { textTableToGridData } from "./tsModules/music-spreadsheet/genLink";
+import { getTitle, textTableToGridData } from "./tsModules/music-spreadsheet/genLink";
 import { MsEditor } from "./tsModules/music-spreadsheet/msEditor";
 
 declare const google: any;
@@ -27,7 +27,8 @@ function addLinkedImageToDoc(msEditor: MsEditor) {
   dialog.showModal();
 
   const link = msEditor.getMelodocLink();
-  genSheetImage(textTableToGridData(msEditor.tsEditor.textTable), async blob => {
+  const title = getTitle(msEditor.tsEditor.textTable);
+  genSheetImage(textTableToGridData(msEditor.tsEditor.textTable), title, async blob => {
     if (!blob) {
       dialog.close();
       return;

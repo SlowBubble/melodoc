@@ -257,11 +257,11 @@
         if (info.ctrlKey) {
             strs.push('ctrl');
         }
-        if (info.shiftKey) {
-            strs.push('shift');
-        }
         if (info.altKey) {
             strs.push('alt');
+        }
+        if (info.shiftKey) {
+            strs.push('shift');
         }
         strs.push(info.endKey);
         return strs.join(' ');
@@ -914,7 +914,7 @@
     function genMidiChordSheetLink(textTable) {
         const json = textTableToGridData(textTable);
         const jsonStr = JSON.stringify(json);
-        return jsonStringToLink(jsonStr);
+        return jsonStringToLink(jsonStr, getTitle(textTable));
     }
     function textTableToGridData(textTable) {
         const res = [
@@ -928,10 +928,22 @@
         res.push(...getVoiceRows(textTable.cells));
         return res;
     }
-    function jsonStringToLink(jsonStr) {
+    function jsonStringToLink(jsonStr, title) {
         const baseLink = 'https://slowbubble.github.io/MidiChordSheet/';
-        const title = 'untitled';
         return `${baseLink}#displayNotes=1&title=${title}&data=${encodeURIComponent(jsonStr)}`;
+    }
+    function getTitle(textTable) {
+        const cell = getTitleCell(textTable);
+        return cell ? cell.text.replace('Title:', '').trim() : 'Untitled';
+    }
+    function getTitleCell(textTable) {
+        let resCell = null;
+        textTable.getCellsInArray().forEach(cell => {
+            if (cell.text.startsWith('Title:')) {
+                resCell = cell;
+            }
+        });
+        return resCell;
     }
 
     const keyToNoteNum = new Map([
@@ -1037,6 +1049,8 @@
             this.hotkeyToAction.set('alt up', _ => this.handleAddChordRow(true));
             this.hotkeyToAction.set('alt down', _ => this.handleAddChordRow());
             this.hotkeyToAction.set('tab', _ => this.handleTab());
+            this.hotkeyToAction.set('alt shift t', _ => this.handleTitleChange());
+            this.hotkeyToAction.set('alt d', _ => this.handleDeleteRow());
         }
         isInVoiceCell() {
             const row = this.tsEditor.textTable.cells[this.tsEditor.cursor.rowIdx];
@@ -1044,6 +1058,38 @@
                 return true;
             }
             return rowHasVoice(row);
+        }
+        handleTitleChange() {
+            const currTitle = getTitle(this.tsEditor.textTable);
+            const title = prompt('Enter a title:', currTitle);
+            if (!title) {
+                return shouldRerenderAndPreventDefault();
+            }
+            const titleCell = getTitleCell(this.tsEditor.textTable);
+            const text = `Title: ${title}`;
+            if (titleCell) {
+                titleCell.text = text;
+            }
+            else {
+                this.tsEditor.textTable.cells.splice(0, 0, [new Cell$1(), new Cell$1(text)]);
+                this.tsEditor.cursor.rowIdx = 0;
+                this.tsEditor.cursor.colIdx = 1;
+            }
+            return shouldRerenderAndPreventDefault();
+        }
+        handleDeleteRow() {
+            const rowIdx = this.tsEditor.cursor.rowIdx;
+            if (this.tsEditor.textTable.cells.length <= 1) {
+                this.tsEditor.textTable = new TextTable();
+            }
+            else {
+                this.tsEditor.textTable.cells.splice(rowIdx, 1);
+            }
+            if (this.tsEditor.cursor.rowIdx >= this.tsEditor.textTable.cells.length) {
+                this.tsEditor.cursor.rowIdx = this.tsEditor.textTable.cells.length - 1;
+            }
+            this.tsEditor.cursor.colIdx = 0;
+            return shouldRerenderAndPreventDefault();
         }
         handleAddChordRow(aboveInsteadOfBelow = false) {
             const rowIdx = aboveInsteadOfBelow ?
@@ -9459,13 +9505,13 @@ ${this._abcVoices().join('')}
     }
 
     // Requires tmp-sheet-container and tmp-sheet-canvasto be in the DOM.
-    function genSheetImage(gridData, handler) {
+    function genSheetImage(gridData, title, handler) {
         const div = document.getElementById('tmp-sheet-container');
         if (!div) {
             return;
         }
         // 1. Render sheet music svg in div.
-        const songInfo = parseKeyValsToSongInfo(gridData, {});
+        const songInfo = parseKeyValsToSongInfo(gridData, { title: title });
         const song = songInfo.songForm.toFullyArrangedSong();
         const renderMgr = new RenderMgr(div);
         renderMgr.render(song);
@@ -9478,30 +9524,6 @@ ${this._abcVoices().join('')}
         const canvgInstance = canvg.Canvg.fromString(ctx, div.innerHTML);
         canvgInstance.start();
         canvas.toBlob(handler, 'image/png');
-        // // 2. When the svg is loaded into img, draw the img into a canvas html.
-        // const imgHtml = document.getElementById('tmp-sheet-img') as HTMLImageElement;
-        // imgHtml.onerror = err => {
-        //   console.log(err);
-        // };
-        // imgHtml.onload = () => {
-        //   const canvas = document.createElement('canvas');
-        //   const canvasCtx = canvas.getContext('2d');
-        //   if (!canvasCtx) {
-        //     console.log('failed to get 2d context')
-        //     return;
-        //   }
-        //   canvas.width = imgHtml.clientWidth;
-        //   canvas.height = imgHtml.clientHeight;
-        //   canvasCtx.drawImage(imgHtml, 0, 0);
-        //   canvas.toBlob(handler, 'image/png');
-        // }
-        // // 3. Load the svg into img
-        // const svg = div.querySelector('svg');
-        // const svgBlobUrl = URL.createObjectURL(new Blob([div.innerHTML], { type: 'image/svg+xml;charset=utf-8' }));
-        // imgHtml.src = svgBlobUrl;
-        // html2canvas(div.querySelector('svg')).then((canvas: HTMLCanvasElement) => {
-        //   canvas.toBlob(handler, 'image/png');
-        // });
     }
 
     function setupGoogleAddOnActions(msEditor) {
@@ -9521,7 +9543,8 @@ ${this._abcVoices().join('')}
         const dialog = document.getElementById('inserting-dialog');
         dialog.showModal();
         const link = msEditor.getMelodocLink();
-        genSheetImage(textTableToGridData(msEditor.tsEditor.textTable), async (blob) => {
+        const title = getTitle(msEditor.tsEditor.textTable);
+        genSheetImage(textTableToGridData(msEditor.tsEditor.textTable), title, async (blob) => {
             if (!blob) {
                 dialog.close();
                 return;
@@ -9556,7 +9579,8 @@ ${this._abcVoices().join('')}
                 setUrlParam('data', textContent);
             });
             msUiElt.msEditor.customHotkeyToAction.set('alt x', async (_) => {
-                genSheetImage(textTableToGridData(msUiElt.msEditor.tsEditor.textTable), blob => {
+                const title = getTitle(msUiElt.msEditor.tsEditor.textTable);
+                genSheetImage(textTableToGridData(msUiElt.msEditor.tsEditor.textTable), title, blob => {
                     if (!blob) {
                         return;
                     }
