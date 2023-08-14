@@ -34,7 +34,7 @@ export class MsEditor {
     this.hotkeyToAction.set('cmd shift z', evt => this.tsEditor.defaultKeydownHandler(evt));
     this.hotkeyToAction.set('left', _ => this.handleLeft());
     this.hotkeyToAction.set('right', _ => this.handleRight());
-    this.hotkeyToAction.set('backspace', _ => this.handleBackspace());
+    // this.hotkeyToAction.set('backspace', _ => this.handleBackspace());
     this.hotkeyToAction.set('enter', _ => this.handleEnter());
     this.hotkeyToAction.set('alt up', _ => this.handleAddChordRow(true));
     this.hotkeyToAction.set('alt down', _ => this.handleAddChordRow());
@@ -183,13 +183,13 @@ export class MsEditor {
     }
   }
 
-  handleBackspace() {
-    const hasChanged = this.tsEditor.removeTextOrMoveBack(true);
-    if (!hasChanged) {
-      this.moveLeftOrUpRightWhereTextExists(true);
-    };
-    return shouldRerenderAndPreventDefault();
-  }
+  // handleBackspace() {
+  //   const hasChanged = this.tsEditor.removeTextOrMoveBack(true);
+  //   if (!hasChanged) {
+  //     this.moveLeftOrUpRightWhereTextExists(true);
+  //   };
+  //   return shouldRerenderAndPreventDefault();
+  // }
   handleEnter() {
     if (!this.tsEditor.cursor.inTextMode) {
       this.tsEditor.enterTextMode();

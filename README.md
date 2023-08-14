@@ -23,11 +23,29 @@ Chord:    | Cmaj7 Am7             | Dm7 G7                   | C6
 
 # TODO
 
-- X: Title
-  - Try chinese
+- chord division using ;
 - enharmonic
+  - design shortcut
+- Copy in magic vs non-magic mode
+  - Copy line?
+
+- horizontal scroll.
+- think about level 2 subdivions
+
+Design of clicks:
+- 1 click
+  - detect it using onclick
+  - go into text mode
+- 2 clicks
+  - detect it using ondblclick
+  - Whole cell for now.
+- 3 clicks
+  - detect it using onclick where selectionStart !== selectionEnd
+  - select entire row
 
 ## Open question
+
+- Should right arrow preserve text mode (for empty cell) when it is already in text mode
 
 ### Answered
 - Is it worth having shift+key shortcuts by applying it when not in text mode? No
@@ -39,7 +57,6 @@ Chord:    | Cmaj7 Am7             | Dm7 G7                   | C6
 
 ## Doc Add-On
 
-- Use a sidebar to open things.
 
 ### P3
 - Should we support inserting at a non-top-level location?

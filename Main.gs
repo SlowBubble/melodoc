@@ -7,7 +7,7 @@ function onOpen(e) {
 
 function showEditor() {
   var html = HtmlService.createTemplateFromFile('Editor').evaluate()
-    .setWidth(1200)
+    .setWidth(1700)
     .setHeight(1200);
   DocumentApp.getUi() // Or DocumentApp or SlidesApp or FormApp.
     .showModalDialog(html, 'Melodoc Editor');

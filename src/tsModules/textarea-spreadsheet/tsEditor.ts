@@ -56,9 +56,20 @@ export class TsEditor {
       public onRenderHandler: Function | undefined = undefined,
   ) {
     this.textarea.onkeydown = evt => this.handleTextareaKeydown(evt)
-    this.textarea.onclick = evt => {
-      // TODO use the selection range to determine which cell the cursor should be on
-      console.log('onclick', evt);
+    this.textarea.onclick = _ => {
+      // single click
+      if (this.textarea.selectionStart === this.textarea.selectionEnd) {
+        this.cursor = this.inferCursorInTextMode(this.textarea.selectionStart);
+      } else {
+        // triple click
+      }
+      this.render();
+    }
+    this.textarea.ondblclick = _ => {
+      console.log(this.textarea.selectionStart, this.textarea.selectionEnd);
+      this.cursor = this.inferCursorInTextMode(this.textarea.selectionStart);
+      this.cursor.inTextMode = false;
+      this.render();
     }
     // For text input like shift+enter or alt+i, keydownEvt.preventDefault() does not work
     // so I have to intercept them here and revert the changes by running render().
@@ -333,7 +344,8 @@ export class TsEditor {
         return;
       }
       if (i === this.cursor.rowIdx) {
-        line.split(COLUMN_DELIMITER).forEach((cellText, j) => {
+        const row = line.split(COLUMN_DELIMITER);
+        row.forEach((cellText, j) => {
           if (j > this.cursor.colIdx) {
             return;
           }
@@ -343,7 +355,10 @@ export class TsEditor {
             }
             return;
           }
-          idx += cellText.length + COLUMN_DELIMITER.length;
+          idx += cellText.length;
+          if (j < row.length - 1) {
+            idx += COLUMN_DELIMITER.length;
+          }
         });
         return;
       };
@@ -371,6 +386,35 @@ export class TsEditor {
       return idx + 1;
     }
     return idx + textLength;
+  }
+
+  inferCursorInTextMode(selectionStart: number) {
+    let rowIdx = 0;
+    let colIdx = 0;
+    let textIdx = 0;
+    let accumulatedTextLength = 0;
+    this.textTable.cells.forEach((row, i) => {
+      row.forEach((cell, j) => {
+        const cellTextLength = cell.text.length;
+        // COLUMN_DELIMITER.length must be 3 for this hack to work.
+        // - 1 because we want to include the case where the click happens near the right of " | ".
+        if (accumulatedTextLength - 1 <= selectionStart) {
+          rowIdx = i;
+          colIdx = j;
+          // COLUMN_DELIMITER.length must be 3 for this hack to work.
+          // Can exceed cellTextLength if clicking near the left of " | ".
+          // Can drop to -1 if near the right of " | ".
+          console.log(accumulatedTextLength, selectionStart, selectionStart - accumulatedTextLength);
+          textIdx = Math.min(Math.max(0, selectionStart - accumulatedTextLength), cellTextLength);
+        }
+        accumulatedTextLength += cellTextLength;
+        if (j < row.length - 1) {
+          accumulatedTextLength += COLUMN_DELIMITER.length;
+        }
+      });
+      accumulatedTextLength += ROW_DELIMITER.length;
+    });
+    return new TsCursor(rowIdx, colIdx, true, textIdx);
   }
 }
 
